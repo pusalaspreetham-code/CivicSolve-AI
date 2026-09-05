@@ -1,0 +1,42 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+
+import authRoutes from "./routes/authRoutes";
+import studentRoutes from "./routes/studentRoutes";
+import problemRoutes from "./routes/problemRoutes";
+import citizenRoutes from "./routes/citizenRoutes";
+import universityRoutes from "./routes/universityRoutes";
+import teamRoutes from "./routes/teamRoutes";
+import { getPublicProblems } from "./controllers/problemController";
+import { notFound, errorHandler } from "./middleware/errorMiddleware";
+
+dotenv.config();
+
+const app = express();
+
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ extended: true, limit: "25mb" }));
+
+app.get("/api/health", (_req, res) => {
+  res.json({ success: true, message: "CivicSolve Student Portal API is running." });
+});
+
+app.use("/api/auth", authRoutes);
+app.use("/api/students", studentRoutes);
+app.get("/api/public/problems", getPublicProblems);
+app.use("/api/problems", problemRoutes);
+app.use("/api/citizen", citizenRoutes);
+app.use("/api/university", universityRoutes);
+app.use("/api/teams", teamRoutes);
+
+app.use(notFound);
+app.use(errorHandler);
+
+export default app;

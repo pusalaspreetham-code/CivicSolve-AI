@@ -1,0 +1,136 @@
+import { TranslationDictionary } from './types';
+import { en } from './en';
+
+export const hi: TranslationDictionary = {
+  ...en,
+  // Header & Brand
+  appName: 'CivicSolve',
+  pilotBadge: 'पायलट',
+  appTagline: 'सामूहिक नागरिक समस्या समाधान मंच',
+  networkBanner: 'नागरिक कार्य नेटवर्क • नागरिकों, सरकार, विश्वविद्यालयों और गैर-सरकारी संगठनों को जोड़ना',
+  verifiedIntake: 'सत्यापित नागरिक पंजीकरण',
+  reportProblemBtn: 'समस्या दर्ज करें',
+  howItWorks: 'यह कैसे काम करता है',
+  stakeholders: 'सहयोगी और भागीदार',
+  faq: 'अक्सर पूछे जाने वाले प्रश्न',
+  selectLanguage: 'भाषा',
+  language: 'भाषा',
+
+  // Hero & Intro
+  citizenIntakeBadge: 'नागरिक लोक सेवा पंजीकरण मॉड्यूल',
+  civicRegistry: 'नागरिक समस्या रजिस्ट्री',
+  heroTitle: 'अपने समुदाय की समस्या दर्ज करें',
+  heroSubtitle: 'अपने क्षेत्र की समस्याओं को पहचानने, समझने और हल करने में हमारी मदद करें।',
+  connectedPartners: 'जुड़े हुए समाधान भागीदार:',
+  partnerGov: 'सरकारी विभाग',
+  partnerUnis: 'विश्वविद्यालय और छात्र',
+  partnerNgos: 'एनजीओ और उद्योग',
+
+  // Form Card
+  formTitle: 'समस्या प्रस्तुति प्रपत्र',
+  formSubtitle: 'सत्यापन और जियो-टैगिंग के लिए कृपया सटीक जानकारी प्रदान करें',
+  publicRegistry: 'सार्वजनिक नागरिक रजिस्ट्री',
+  requiredFieldsNotice: '* चिह्नित फ़ील्ड भरना अनिवार्य है',
+  fillSample: 'परीक्षण के लिए नमूना रिपोर्ट भरें',
+
+  // Problem Description
+  descriptionLabel: 'समस्या का विवरण दें',
+  descriptionHint: 'नीचे टाइप करें या अपनी भाषा में बोलने के लिए वॉयस टूल का उपयोग करें',
+  descriptionPlaceholder: 'क्या हुआ, कहां हुआ, यह समस्या कब से है और समुदाय में कौन प्रभावित है, विस्तार से बताएं...',
+  descriptionRequiredError: 'कृपया समस्या का विवरण दर्ज करें।',
+  descriptionMinLengthError: 'कृपया अधिक विस्तृत विवरण प्रदान करें (कम से कम 15 वर्ण)।',
+
+  // Voice Input
+  voiceLabel: 'वॉयस विवरण',
+  voiceBadge: 'बोलकर टाइप करने का साधन',
+  voiceHint: 'अपनी भाषा में समस्या बोलें। आपकी आवाज़ स्वचालित रूप से ऊपर दिए गए विवरण बॉक्स में टाइप हो जाएगी।',
+  voiceRecordBtn: 'अपनी समस्या बोलें',
+  voiceListening: 'आपकी आवाज़ सुन रहे हैं...',
+  voiceStopBtn: 'रिकॉर्डिंग रोकें',
+  voiceSuccess: 'आवाज़ सफलतापूर्वक टेक्स्ट में बदल गई! समीक्षा और संपादन के लिए आपका विवरण ऊपर जोड़ दिया गया है।',
+  voiceMicBlocked: 'माइक्रोफ़ोन एक्सेस अस्वीकार कर दिया गया है। कृपया ब्राउज़र सेटिंग्स में माइक्रोफ़ोन की अनुमति दें या सीधे टाइप करें।',
+  voiceNoSpeech: 'कोई आवाज़ नहीं पहचानी गई। कृपया माइक्रोफ़ोन के पास बोलें या विवरण टाइप करें।',
+  voiceUnsupported: 'इस ब्राउज़र या चयनित भाषा में वाक् पहचान उपलब्ध नहीं है। कृपया ऊपर सीधे टाइप करें।',
+  voiceLangNotice: 'वाक् पहचान भाषा:',
+  voiceCapturing: 'रिकॉर्ड हो रहा है',
+  voiceDismiss: 'हटाएं',
+
+  // Location Input
+  locationLabel: 'समस्या का स्थान',
+  locationHint: 'सड़क का नाम, क्षेत्र या निकटतम लैंडमार्क बताएं',
+  locationPlaceholder: 'उदा. सामुदायिक स्वास्थ्य केंद्र के पास, वार्ड 14, मुख्य मार्ग...',
+  useCurrentLocationBtn: 'मेरे वर्तमान स्थान का उपयोग करें',
+  gettingLocation: 'जीपीएस स्थान का पता लगाया जा रहा है...',
+  locationDetected: 'जीपीएस के माध्यम से स्थान प्राप्त हुआ',
+  locationDenied: 'जीपीएस अनुमति अस्वीकार कर दी गई। कृपया अपना पता स्वयं टाइप करें।',
+  locationRequiredError: 'कृपया समस्या का स्थान या सड़क का पता दर्ज करें।',
+  gpsCoordinates: 'जीपीएस निर्देशांक',
+  accuracy: 'सटीकता',
+
+  // Evidence Uploader
+  evidenceLabel: 'फ़ोटो और वीडियो साक्ष्य',
+  evidenceOptional: '(वैकल्पिक)',
+  evidenceHint: 'समस्या को स्पष्ट रूप से दर्शाने वाले फ़ोटो या छोटे वीडियो क्लिप अपलोड करें।',
+  dragDropText: 'फ़ोटो या वीडियो यहाँ खींचकर लाएँ, या',
+  browseFiles: 'फ़ाइलें चुनें',
+  takePhoto: 'फ़ोटो खींचें / फ़ाइलें चुनें',
+  maxFilesNotice: 'अधिकतम 5 फ़ाइलें (JPG, PNG, WebP, MP4), प्रत्येक 10MB तक',
+  fileAttached: 'फ़ाइल जोड़ी गई',
+  filesAttached: 'फ़ाइलें जोड़ी गईं',
+  removeFile: 'हटाएँ',
+
+  // Preview Screen
+  previewTitle: 'अपनी समस्या रिपोर्ट की समीक्षा करें',
+  previewSubtitle: 'अंतिम प्रस्तुति से पहले अपने मूल विवरण, स्थान और अंग्रेज़ी अनुवाद की समीक्षा करें।',
+  selectedLangLabel: 'चयनित भाषा',
+  originalDescriptionLabel: 'मूल समस्या विवरण (नागरिक की आवाज़)',
+  englishTranslationLabel: 'अंग्रेज़ी अनुवाद (एआई और समाधान भागीदारों के लिए)',
+  translatingNotice: 'समाधान भागीदारों के लिए मानकीकृत अंग्रेज़ी अनुवाद तैयार किया जा रहा है...',
+  translationSuccess: 'अंग्रेज़ी में अनुवाद तैयार है',
+  translationFailedNotice: 'अनुवाद सेवा से संपर्क नहीं हो सका। रिपोर्ट आपके मूल विवरण के साथ दर्ज की जाएगी।',
+  locationSummaryLabel: 'घटना स्थल',
+  evidenceSummaryLabel: 'संलग्न दृश्य साक्ष्य',
+  noEvidenceAttached: 'कोई फ़ोटो/वीडियो संलग्न नहीं है',
+  editProblemBtn: 'संशोधित करें',
+  confirmSubmitBtn: 'समस्या सबमिट करें',
+  reviewAndPreviewBtn: 'समीक्षा करें और पूर्वावलोकन देखें',
+  submittingBtn: 'सबमिट हो रहा है...',
+  aiHandoffNotice: 'सबमिट करने पर यह संरचित डेटा समाधान और डुप्लिकेशन हटाने के लिए एआई पाइपलाइन को भेजा जाएगा।',
+
+  // Submission Success
+  successBadge: 'आधिकारिक रसीद',
+  successTitle: 'आपकी समस्या सफलतापूर्वक सबमिट हो गई है।',
+  successSubtitle: 'आपकी समस्या का विवरण प्राप्त हो गया है और पंजीकरण कतार में शामिल कर लिया गया है।',
+  trackingRefLabel: 'केस ट्रैकिंग संदर्भ संख्या:',
+  copyIdBtn: 'आईडी कॉपी करें',
+  copiedBtn: 'कॉपी हो गया!',
+  intakeOverview: 'प्रस्तुति का विवरण',
+  statusReceived: 'प्राप्त हुआ',
+  reportAnotherBtn: 'एक और समस्या दर्ज करें',
+  printReceiptBtn: 'रसीद प्रिंट करें',
+  nextStepsTitle: 'अगले चरण:',
+  step1Title: 'एआई एजेंट विश्लेषण',
+  step1Desc: 'समस्या का वर्गीकरण और विश्लेषण किया जाता है।',
+  step2Title: 'समान समस्याओं का समूह',
+  step2Desc: 'एक ही क्षेत्र की समान समस्याओं को एक साथ जोड़ा जाता है।',
+  step3Title: 'सामूहिक समाधान',
+  step3Desc: 'समस्या को नगरपालिका अधिकारियों, छात्रों और स्थानीय गैर-सरकारी संगठनों को भेजा जाता है।',
+  developerInspector: 'डेवलपर पेलोड इंस्पेक्टर (POST /api/citizen/problems)',
+
+  // Sidebar & Info
+  sidebarTitle: 'CivicSolve कैसे काम करता है',
+  sidebarDesc: 'आपकी रिपोर्ट नागरिकों, सरकार, विश्वविद्यालयों और एनजीओ के बीच की दूरी को कम करती है।',
+  whyReport: 'CivicSolve पर रिपोर्ट क्यों करें?',
+  point1Title: 'सार्वजनिक जवाबदेही',
+  point1Desc: 'प्रत्येक रिपोर्ट के लिए एक आधिकारिक ट्रैकिंग आईडी और रिकॉर्ड मिलता है।',
+  point2Title: 'सहयोगात्मक समाधान',
+  point2Desc: 'इंजीनियरिंग छात्र और विशेषज्ञ मिलकर कम लागत वाले समाधान तैयार करते हैं।',
+  point3Title: 'तेज़ कार्रवाई',
+  point3Desc: 'एक ही क्षेत्र के कई मामले मिलकर उच्च प्राथमिकता प्राप्त करते हैं।',
+  helplineTitle: 'नागरिक सहायता हेल्पलाइन',
+  helplineText: 'रिपोर्ट दर्ज करने में सहायता चाहिए? टोल-फ्री 1800-CIVIC-SOLVE पर कॉल करें।',
+
+  // Errors & General
+  errorTitle: 'सबमिशन में त्रुटि हुई',
+  errorDismiss: 'हटाएं',
+};
