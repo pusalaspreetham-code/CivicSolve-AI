@@ -1,4 +1,3 @@
-
 import base64
 import json
 import os
@@ -8,6 +7,7 @@ from typing import List, Optional
 
 import ollama
 import psycopg
+from psycopg_pool import ConnectionPool
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pgvector.psycopg import register_vector
@@ -35,9 +35,33 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(Path(__file__).parent / "uploads")))
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
-SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.35"))
+# NOTE: raised from 0.35 -> 0.5 default. MiniLM cosine similarity at 0.35 lets
+# in too many weak candidates and forces unnecessary LLM dedup calls.
+# Tune this empirically against a labeled set of known-duplicate pairs.
+SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.5"))
+
+# How long Ollama keeps each model resident in memory between calls.
+# Avoids reload/cold-start latency on back-to-back requests.
+OLLAMA_KEEP_ALIVE = os.getenv("OLLAMA_KEEP_ALIVE", "30m")
+
+# Low temperature for classification/dedup — we want consistency, not creativity.
+CLASSIFICATION_OPTIONS = {"temperature": 0.15}
+VISION_OPTIONS = {"temperature": 0.2}
 
 embedding_model = SentenceTransformer(EMBEDDING_MODEL)
+
+# Single connection pool, created once at startup, reused across requests.
+# Avoids the cost of opening a new DB connection (+ register_vector) per call.
+pool = ConnectionPool(
+    conninfo=(
+        f"host={DB_CONFIG['host']} port={DB_CONFIG['port']} "
+        f"dbname={DB_CONFIG['dbname']} user={DB_CONFIG['user']} "
+        f"password={DB_CONFIG['password']}"
+    ),
+    min_size=2,
+    max_size=10,
+    configure=register_vector,
+)
 
 
 # ============================================================
@@ -94,6 +118,9 @@ Aerospace and Aeronautical Engineering
 Architecture
 Other
 """
+
+_DOMAIN_SET = {d.strip() for d in DOMAINS.strip().splitlines()}
+_FIELD_SET = {f.strip() for f in FIELDS.strip().splitlines()}
 
 
 # ============================================================
@@ -181,6 +208,8 @@ Return only the description.
         response = ollama.chat(
             model=VISION_MODEL,
             messages=[{"role": "user", "content": prompt, "images": [image_path]}],
+            options=VISION_OPTIONS,
+            keep_alive=OLLAMA_KEEP_ALIVE,
         )
         return response["message"]["content"].strip()
     except Exception as e:
@@ -201,6 +230,37 @@ def clean_fields(fields):
         if field and field not in cleaned:
             cleaned.append(field)
     return cleaned
+
+
+def _closest_match(value: str, valid_set: set) -> str:
+    """Map a possibly-hallucinated LLM label to the nearest valid taxonomy
+    entry. Exact match first, then case-insensitive, then substring match,
+    then fall back to 'Other'. Mismatches are logged so drift is visible."""
+    if value in valid_set:
+        return value
+
+    value_lower = value.strip().lower()
+    for candidate in valid_set:
+        if candidate.lower() == value_lower:
+            return candidate
+
+    for candidate in valid_set:
+        if candidate.lower() in value_lower or value_lower in candidate.lower():
+            return candidate
+
+    print(f"[taxonomy] no match for '{value}', falling back to 'Other'")
+    return "Other"
+
+
+def validate_classification(result: dict) -> dict:
+    """Normalizes domain/responsible_fields against the known taxonomy so
+    small-model hallucinations (typos, near-miss labels) don't silently
+    leak into downstream data."""
+    result["domain"] = _closest_match(result.get("domain", ""), _DOMAIN_SET)
+    result["responsible_fields"] = [
+        _closest_match(f, _FIELD_SET) for f in result.get("responsible_fields", [])
+    ] or ["Other"]
+    return result
 
 
 # ============================================================
@@ -286,6 +346,8 @@ Example:
             model=CLASSIFICATION_MODEL,
             messages=[{"role": "user", "content": prompt}],
             format="json",
+            options=CLASSIFICATION_OPTIONS,
+            keep_alive=OLLAMA_KEEP_ALIVE,
         )
 
         content = response["message"]["content"].strip()
@@ -307,6 +369,7 @@ Example:
                 return None
 
         result["responsible_fields"] = clean_fields(result["responsible_fields"])
+        result = validate_classification(result)
         return result
 
     except json.JSONDecodeError as e:
@@ -322,11 +385,16 @@ Example:
 # ============================================================
 
 def create_embedding(classification, report_text, image_description):
+    # Kept the same signature/inputs, but weighted toward the *normalized*
+    # title+description (clean signal) rather than letting raw citizen text
+    # and a possibly noisy image description dominate the vector. Raw text
+    # is still included, just de-weighted by truncation, to preserve any
+    # detail the classifier dropped without drowning out the clean fields.
     embedding_text = (
         classification["problem_title"] + ". "
         + classification["problem_description"] + ". "
-        + report_text + ". "
-        + image_description
+        + report_text[:300] + ". "
+        + image_description[:200]
     )
     return embedding_model.encode(embedding_text).tolist()
 
@@ -358,6 +426,10 @@ def find_candidates(conn, embedding, limit=5):
 # ============================================================
 
 def check_same_problem(report_text, classification, candidate):
+    """Kept for backward compatibility / single-candidate use. The main
+    /process flow now uses check_candidates_batch below, which does the
+    same job for all candidates in one LLM call instead of one call per
+    candidate."""
     (
         candidate_id, candidate_title, candidate_description, candidate_domain,
         candidate_fields, candidate_severity, candidate_confidence,
@@ -431,6 +503,8 @@ OR
             model=CLASSIFICATION_MODEL,
             messages=[{"role": "user", "content": prompt}],
             format="json",
+            options=CLASSIFICATION_OPTIONS,
+            keep_alive=OLLAMA_KEEP_ALIVE,
         )
 
         content = response["message"]["content"].strip()
@@ -454,6 +528,105 @@ OR
         return None
     except Exception as e:
         print("Similarity check failed:", e)
+        return None
+
+
+def check_candidates_batch(report_text, classification, candidates):
+    """Single LLM call that compares the new report against ALL candidates
+    at once, instead of one call per candidate (up to 5x fewer calls).
+    Returns {"match_id": <id or None>, "reason": "..."} in the same shape
+    the caller needs to merge or move on."""
+    if not candidates:
+        return {"match_id": None, "reason": "No candidates."}
+
+    candidates_block = "\n\n".join(
+        f"CANDIDATE_ID: {c[0]}\nTitle: {c[1]}\nDescription: {c[2]}\nDomain: {c[3]}"
+        for c in candidates
+    )
+
+    prompt = f"""
+You are comparing ONE new civic report against a list of
+EXISTING reports to find out if any of them describe the
+SAME underlying civic problem.
+
+NEW REPORT:
+
+Title:
+{classification["problem_title"]}
+
+Description:
+{classification["problem_description"]}
+
+Domain:
+{classification["domain"]}
+
+Citizen text:
+{report_text}
+
+
+EXISTING CANDIDATES:
+
+{candidates_block}
+
+
+Rules:
+
+- SAME means both reports describe the same underlying
+  civic issue.
+- Different wording for the same issue is still SAME.
+- The same type of civic problem reported at another
+  location can still be SAME.
+- Do not require exact coordinates.
+- Different civic problems are DIFFERENT.
+- Do not decide based only on wording.
+- Consider the actual problem.
+- Electricity consumption prediction and electricity
+  consumption forecasting are the same underlying problem.
+- A hardware electrical fault is different from an
+  electricity consumption prediction problem.
+- At most ONE candidate can match. If none match, match_id
+  must be null.
+
+Return ONLY this JSON:
+
+{{
+    "match_id": <id of the matching candidate, or null>,
+    "reason": "short explanation"
+}}
+"""
+
+    try:
+        response = ollama.chat(
+            model=CLASSIFICATION_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            format="json",
+            options=CLASSIFICATION_OPTIONS,
+            keep_alive=OLLAMA_KEEP_ALIVE,
+        )
+
+        content = response["message"]["content"].strip()
+        start = content.find("{")
+        end = content.rfind("}")
+        if start == -1 or end == -1:
+            print("No JSON found in batch similarity response.")
+            return None
+
+        result = json.loads(content[start:end + 1])
+
+        match_id = result.get("match_id")
+        # Guard against the model inventing an id that wasn't in the candidate list.
+        valid_ids = {c[0] for c in candidates}
+        if match_id is not None and match_id not in valid_ids:
+            print(f"[dedup] model returned invalid match_id {match_id}, ignoring.")
+            match_id = None
+
+        return {"match_id": match_id, "reason": result.get("reason", "")}
+
+    except json.JSONDecodeError as e:
+        print("Batch similarity JSON error:", e)
+        return None
+    except Exception as e:
+        print("Batch similarity check failed:", e)
         return None
 
 
@@ -596,8 +769,9 @@ def process(req: ProcessRequest):
     image_description = analyze_image(image_path) if image_path else ""
 
     try:
-        with psycopg.connect(**DB_CONFIG) as conn:
-            register_vector(conn)
+        # Pooled connection instead of opening a new one per request.
+        # register_vector is applied automatically via pool's `configure`.
+        with pool.connection() as conn:
 
             classification = classify_report(report_text, image_description)
             if classification is None:
@@ -613,36 +787,54 @@ def process(req: ProcessRequest):
 
             candidates = find_candidates(conn, embedding, limit=5)
 
+            # Only keep candidates that clear the similarity bar, then ask
+            # the LLM once (not once per candidate) which one, if any, matches.
+            strong_candidates = []
             for candidate in candidates:
-                candidate_id = candidate[0]
                 distance = candidate[-1]
                 similarity = 1 - distance
+                if similarity >= SIMILARITY_THRESHOLD:
+                    strong_candidates.append((candidate, similarity))
 
-                if similarity < SIMILARITY_THRESHOLD:
-                    continue
+            if strong_candidates:
+                decision = check_candidates_batch(
+                    report_text, classification, [c for c, _ in strong_candidates]
+                )
 
-                decision = check_same_problem(report_text, classification, candidate)
-                if decision is None:
-                    continue
+                if decision and decision.get("match_id") is not None:
+                    matched_id = decision["match_id"]
+                    matched_similarity = next(
+                        sim for c, sim in strong_candidates if c[0] == matched_id
+                    )
 
-                if decision["decision"] == "SAME":
-                    add_location(conn, candidate_id, req.latitude, req.longitude)
+                    add_location(conn, matched_id, req.latitude, req.longitude)
                     with conn.cursor() as cur:
-                        cur.execute("UPDATE reports SET problem_title=%s, problem_description=%s, domain=%s, responsible_fields=%s, severity=%s, confidence=%s WHERE id=%s", (classification["problem_title"], classification["problem_description"], classification["domain"], classification["responsible_fields"], classification["severity"], classification["confidence"], candidate_id))
+                        cur.execute(
+                            "UPDATE reports SET problem_title=%s, problem_description=%s, domain=%s, responsible_fields=%s, severity=%s, confidence=%s WHERE id=%s",
+                            (
+                                classification["problem_title"],
+                                classification["problem_description"],
+                                classification["domain"],
+                                classification["responsible_fields"],
+                                classification["severity"],
+                                classification["confidence"],
+                                matched_id,
+                            ),
+                        )
                     conn.commit()
-                    insert_problem_report(conn, candidate_id, report_text, req.latitude, req.longitude, image_path, req.case_reference)
+                    insert_problem_report(conn, matched_id, report_text, req.latitude, req.longitude, image_path, req.case_reference)
 
                     return ProcessResponse(
                         ok=True,
                         action="merged_existing",
-                        problemId=candidate_id,
-                        matchedExistingId=candidate_id,
+                        problemId=matched_id,
+                        matchedExistingId=matched_id,
                         domain=classification["domain"],
                         responsibleFields=classification["responsible_fields"],
                         severity=classification["severity"],
                         confidence=classification["confidence"],
                         imageDescription=image_description or None,
-                        similarity=round(similarity, 4),
+                        similarity=round(matched_similarity, 4),
                         reason=decision.get("reason", ""),
                     )
 
