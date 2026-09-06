@@ -745,6 +745,102 @@ def insert_problem_report(
     conn.commit()
     return problem_id
 # ============================================================
+# PREVIEW ENTRY POINT (read-only: classify + dedup-check, no DB writes)
+# ============================================================
+
+@app.post("/preview", response_model=ProcessResponse)
+def preview(req: ProcessRequest):
+    """Same inputs/outputs as /process, but never inserts or updates rows.
+    Used to show the citizen/admin what the AI would do (new problem vs.
+    merge into an existing one) before they confirm the submission."""
+    report_text = (req.text or "").strip()
+    print(
+        f"[PREVIEW] intake_id={req.intake_id}, "
+        f"case_reference={req.case_reference}"
+    )
+    if not report_text:
+        raise HTTPException(status_code=400, detail="Field 'text' is required.")
+
+    image_path = ""
+    if req.image_base64:
+        try:
+            image_path = save_incoming_image(req.image_base64)
+        except Exception as e:
+            print("Failed to save incoming image:", e)
+            image_path = ""
+
+    image_description = analyze_image(image_path) if image_path else ""
+
+    try:
+        with pool.connection() as conn:
+
+            classification = classify_report(report_text, image_description)
+            if classification is None:
+                return ProcessResponse(ok=True, action="failed", error="Classification failed.")
+
+            if req.problem_title: classification["problem_title"] = req.problem_title.strip()
+            if req.problem_description: classification["problem_description"] = req.problem_description.strip()
+            if req.domain: classification["domain"] = req.domain.strip()
+            if req.responsible_fields: classification["responsible_fields"] = req.responsible_fields
+            if req.severity: classification["severity"] = req.severity.strip()
+            if req.confidence is not None: classification["confidence"] = req.confidence
+            embedding = create_embedding(classification, report_text, image_description)
+
+            candidates = find_candidates(conn, embedding, limit=5)
+
+            strong_candidates = []
+            for candidate in candidates:
+                distance = candidate[-1]
+                similarity = 1 - distance
+                if similarity >= SIMILARITY_THRESHOLD:
+                    strong_candidates.append((candidate, similarity))
+
+            if strong_candidates:
+                decision = check_candidates_batch(
+                    report_text, classification, [c for c, _ in strong_candidates]
+                )
+
+                if decision and decision.get("match_id") is not None:
+                    matched_id = decision["match_id"]
+                    matched_similarity = next(
+                        sim for c, sim in strong_candidates if c[0] == matched_id
+                    )
+
+                    # NOTE: no add_location, no UPDATE, no insert_problem_report here.
+                    # This is a preview only — nothing is persisted.
+                    return ProcessResponse(
+                        ok=True,
+                        action="merged_existing",
+                        problemId=matched_id,
+                        matchedExistingId=matched_id,
+                        domain=classification["domain"],
+                        responsibleFields=classification["responsible_fields"],
+                        severity=classification["severity"],
+                        confidence=classification["confidence"],
+                        imageDescription=image_description or None,
+                        similarity=round(matched_similarity, 4),
+                        reason=decision.get("reason", ""),
+                    )
+
+            # NOTE: no insert_new_problem, no insert_problem_report here either.
+            return ProcessResponse(
+                ok=True,
+                action="new_problem",
+                problemTitle=classification["problem_title"],
+                problemDescription=classification["problem_description"],
+                domain=classification["domain"],
+                responsibleFields=classification["responsible_fields"],
+                severity=classification["severity"],
+                confidence=classification["confidence"],
+                imageDescription=image_description or None,
+            )
+
+    except Exception as e:
+        print("AI pipeline preview error:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
 # MAIN ENTRY POINT
 # ============================================================
 
