@@ -4,6 +4,7 @@ import * as teamService from "../services/teamService";
 import { Team } from "../types/team";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import TeamSolutionEditor from "./TeamSolutionEditor";
 
 interface Props {
   problemId: number;
@@ -114,6 +115,12 @@ const TeamsPanel = ({ problemId }: Props) => {
                   </span>
                 ))}
               </div>
+
+              <TeamSolutionEditor
+                team={team}
+                isMember={team.members.some((m) => m.student_id === student?.id)}
+                onSaved={(patch) => setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, ...patch } : t)))}
+              />
             </div>
           ))}
         </div>

@@ -1,11 +1,12 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, LogOut, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Building2, GraduationCap } from "lucide-react";
 import { useUniversityAuth } from "../context/UniversityAuthContext";
 import { useToast } from "../context/ToastContext";
 
 const navItems = [
   { to: "/university/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/university/students", label: "Students", icon: Users },
+  { to: "/university/faculty", label: "Faculty", icon: GraduationCap },
 ];
 
 const UniversityLayout = () => {

@@ -25,3 +25,13 @@ export const leaveTeam = async (teamId: number) => {
   const { data } = await api.delete(`/teams/${teamId}/leave`);
   return data;
 };
+
+export const getTeamSolution = async (teamId: number) => {
+  const { data } = await api.get(`/teams/${teamId}/solution`);
+  return data.solution;
+};
+
+export const saveTeamSolution = async (teamId: number, solutionText: string, evidenceLink: string) => {
+  const { data } = await api.put(`/teams/${teamId}/solution`, { solutionText, evidenceLink });
+  return data;
+};

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { query } from "../config/database";
 import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
+import { notifyTeam } from "../services/teamNotificationService";
 
 const generateInviteCode = (): string => crypto.randomBytes(4).toString("hex").toUpperCase();
 
@@ -10,10 +11,17 @@ const TEAM_SELECT = `
   SELECT
     t.id, t.name, t.problem_id, t.invite_code, t.created_by, t.max_members, t.created_at,
     r.problem_title, r.domain, r.severity,
-    (SELECT COUNT(*)::int FROM team_members tm WHERE tm.team_id = t.id) AS member_count
+    (SELECT COUNT(*)::int FROM team_members tm WHERE tm.team_id = t.id) AS member_count,
+    ts.solution_text, ts.evidence_link, ts.updated_at AS solution_updated_at, ts.updated_by AS solution_updated_by
   FROM teams t
   JOIN reports r ON r.id = t.problem_id
+  LEFT JOIN team_solutions ts ON ts.team_id = t.id
 `;
+
+const isMemberOfTeam = async (teamId: number | string, studentId: number): Promise<boolean> => {
+  const { rows } = await query(`SELECT id FROM team_members WHERE team_id = $1 AND student_id = $2`, [teamId, studentId]);
+  return rows.length > 0;
+};
 
 const getTeamMembers = async (teamId: number) => {
   const { rows } = await query(
@@ -118,6 +126,12 @@ export const joinTeam = asyncHandler(async (req: Request, res: Response) => {
 
   await query(`INSERT INTO team_members (team_id, student_id, role) VALUES ($1, $2, 'MEMBER')`, [team.id, req.studentId]);
 
+  await notifyTeam({
+    teamId: team.id,
+    actorStudentId: req.studentId as number,
+    actionSummary: "joined the team",
+  });
+
   return res.status(201).json({ success: true, alreadyMember: false, message: `You joined "${team.name}".`, team });
 });
 
@@ -173,4 +187,88 @@ export const leaveTeam = asyncHandler(async (req: Request, res: Response) => {
 
   await query(`DELETE FROM team_members WHERE team_id = $1 AND student_id = $2`, [id, req.studentId]);
   return res.json({ success: true, message: "You left the team." });
+});
+
+// ------------------------------------------------------------
+// SOLUTION EVIDENCE
+// One shared solution + evidence link per team. Any team member
+// can create or update it — there is no review/approval step.
+// ------------------------------------------------------------
+
+const isValidLink = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+// GET /api/teams/:id/solution
+export const getTeamSolution = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { rows } = await query(
+    `SELECT ts.*, s.name AS updated_by_name
+     FROM team_solutions ts
+     LEFT JOIN students s ON s.id = ts.updated_by
+     WHERE ts.team_id = $1`,
+    [id]
+  );
+  return res.json({ success: true, solution: rows[0] || null });
+});
+
+// PUT /api/teams/:id/solution   { solutionText, evidenceLink }
+export const upsertTeamSolution = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { solutionText, evidenceLink } = req.body;
+  const studentId = req.studentId as number;
+
+  if (!(await isMemberOfTeam(id, studentId))) {
+    throw new AppError("Only members of this team can submit its solution.", 403);
+  }
+
+  if (typeof solutionText !== "string" || solutionText.trim().length < 10) {
+    throw new AppError("Please describe the solution in at least 10 characters.", 400);
+  }
+
+  const trimmedLink = typeof evidenceLink === "string" ? evidenceLink.trim() : "";
+  if (trimmedLink && !isValidLink(trimmedLink)) {
+    throw new AppError("Evidence link must be a valid http(s) URL.", 400);
+  }
+
+  const { rows: existingRows } = await query(`SELECT solution_text, evidence_link FROM team_solutions WHERE team_id = $1`, [id]);
+  const existing = existingRows[0];
+
+  let actionSummary: string;
+  if (!existing) {
+    actionSummary = "added a new solution";
+  } else {
+    const descChanged = existing.solution_text !== solutionText.trim();
+    const evidenceChanged = (existing.evidence_link || "") !== trimmedLink;
+    if (descChanged && evidenceChanged) actionSummary = "updated the solution and evidence link";
+    else if (evidenceChanged) actionSummary = existing.evidence_link ? "updated the solution evidence link" : "added a solution evidence link";
+    else actionSummary = "updated the solution";
+  }
+
+  const { rows } = await query(
+    `INSERT INTO team_solutions (team_id, solution_text, evidence_link, created_by, updated_by)
+     VALUES ($1, $2, $3, $4, $4)
+     ON CONFLICT (team_id) DO UPDATE
+       SET solution_text = EXCLUDED.solution_text,
+           evidence_link = EXCLUDED.evidence_link,
+           updated_by = EXCLUDED.updated_by,
+           updated_at = CURRENT_TIMESTAMP
+     RETURNING *`,
+    [id, solutionText.trim(), trimmedLink || null, studentId]
+  );
+
+  await notifyTeam({
+    teamId: Number(id),
+    actorStudentId: studentId,
+    actionSummary,
+    detail: solutionText.trim(),
+    evidenceLink: trimmedLink || null,
+  });
+
+  return res.json({ success: true, message: "Solution saved and teammates notified by email.", solution: rows[0] });
 });

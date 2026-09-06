@@ -46,6 +46,30 @@ export interface UniversityJwtPayload {
 
 export type ProblemStatus = "INTERESTED" | "WORKING" | "COMPLETED";
 
+export interface Faculty {
+  id: number;
+  university_id: number;
+  name: string;
+  email: string;
+  department: string;
+  expertise: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type GuidanceStatus = "PENDING" | "ACCEPTED" | "DENIED";
+
+export interface TeamSolution {
+  id: number;
+  team_id: number;
+  solution_text: string;
+  evidence_link: string | null;
+  created_by: number;
+  updated_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const VALID_BRANCHES = [
   "Computer Science and Engineering",
   "Information Technology",

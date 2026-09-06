@@ -1,6 +1,12 @@
 import { Router } from "express";
 import { sendUniversityOtp, registerUniversity, loginUniversity, logoutUniversity } from "../controllers/universityAuthController";
 import { getMe, getDashboard, getUniversityStudents } from "../controllers/universityController";
+import {
+  getUniversityFaculty,
+  addUniversityFaculty,
+  updateUniversityFaculty,
+  deleteUniversityFaculty,
+} from "../controllers/facultyController";
 import { requireUniversityAuth } from "../middleware/universityAuthMiddleware";
 import { authLimiter } from "../middleware/rateLimiter";
 
@@ -15,5 +21,11 @@ router.use(requireUniversityAuth);
 router.get("/me", getMe);
 router.get("/dashboard", getDashboard);
 router.get("/students", getUniversityStudents);
+
+// Faculty management (no faculty portal/login — this is university-managed only)
+router.get("/faculty", getUniversityFaculty);
+router.post("/faculty", addUniversityFaculty);
+router.put("/faculty/:id", updateUniversityFaculty);
+router.delete("/faculty/:id", deleteUniversityFaculty);
 
 export default router;

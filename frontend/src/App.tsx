@@ -17,6 +17,7 @@ import ProblemDetails from "./pages/ProblemDetails";
 import ProblemsMap from "./pages/ProblemsMap";
 import MyProblems from "./pages/MyProblems";
 import MyTeams from "./pages/MyTeams";
+import WorkWithFaculty from "./pages/WorkWithFaculty";
 import Profile from "./pages/Profile";
 import Home from "./pages/Home";
 import PublicProblems from "./pages/PublicProblems";
@@ -26,6 +27,7 @@ import URegister from "./pages/university/URegister";
 import UVerifyOtp from "./pages/university/UVerifyOtp";
 import UDashboard from "./pages/university/UDashboard";
 import UStudents from "./pages/university/UStudents";
+import UFaculty from "./pages/university/UFaculty";
 
 import CitizenApp from "./citizen/CitizenApp";
 import { LanguageProvider } from "./citizen/context/LanguageContext";
@@ -66,6 +68,7 @@ function App() {
             <Route path="/student/problems/:id" element={<ProblemDetails />} />
             <Route path="/student/my-problems" element={<MyProblems />} />
             <Route path="/student/my-teams" element={<MyTeams />} />
+            <Route path="/student/faculty" element={<WorkWithFaculty />} />
             <Route path="/student/profile" element={<Profile />} />
           </Route>
 
@@ -82,6 +85,7 @@ function App() {
           >
             <Route path="/university/dashboard" element={<UDashboard />} />
             <Route path="/university/students" element={<UStudents />} />
+            <Route path="/university/faculty" element={<UFaculty />} />
           </Route>
 
           <Route path="/" element={<Home />} />

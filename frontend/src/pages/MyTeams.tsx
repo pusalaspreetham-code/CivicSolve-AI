@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import Loading from "../components/Loading";
 import EmptyState from "../components/EmptyState";
+import TeamSolutionEditor from "../components/TeamSolutionEditor";
 
 const MyTeams = () => {
   const { student } = useAuth();
@@ -68,6 +69,12 @@ const MyTeams = () => {
                   </span>
                 ))}
               </div>
+
+              <TeamSolutionEditor
+                team={team}
+                isMember={true}
+                onSaved={(patch) => setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, ...patch } : t)))}
+              />
             </div>
           ))}
         </div>

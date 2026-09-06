@@ -22,4 +22,8 @@ export interface Team {
   severity: string;
   member_count: number;
   members: TeamMember[];
+  solution_text?: string | null;
+  evidence_link?: string | null;
+  solution_updated_at?: string | null;
+  solution_updated_by?: number | null;
 }

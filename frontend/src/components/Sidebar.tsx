@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, ListChecks, Globe2, Map, ClipboardList, User, LogOut, ShieldCheck, Users } from "lucide-react";import { useAuth } from "../context/AuthContext";
+import { LayoutDashboard, ListChecks, Globe2, Map, ClipboardList, User, LogOut, ShieldCheck, Users, GraduationCap } from "lucide-react";import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { to: "/student/problems/map", label: "Problem Map", icon: Map },
   { to: "/student/my-problems", label: "My Problems", icon: ClipboardList },
   { to: "/student/my-teams", label: "My Teams", icon: Users },
+  { to: "/student/faculty", label: "Work With Faculty", icon: GraduationCap },
   { to: "/student/profile", label: "Profile", icon: User },
 ];
 

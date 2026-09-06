@@ -8,6 +8,7 @@ import problemRoutes from "./routes/problemRoutes";
 import citizenRoutes from "./routes/citizenRoutes";
 import universityRoutes from "./routes/universityRoutes";
 import teamRoutes from "./routes/teamRoutes";
+import guidanceRoutes from "./routes/guidanceRoutes";
 import { getPublicProblems } from "./controllers/problemController";
 import { notFound, errorHandler } from "./middleware/errorMiddleware";
 
@@ -35,6 +36,8 @@ app.use("/api/problems", problemRoutes);
 app.use("/api/citizen", citizenRoutes);
 app.use("/api/university", universityRoutes);
 app.use("/api/teams", teamRoutes);
+// Public — faculty accept/deny guidance links from email (no auth).
+app.use("/api/guidance", guidanceRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
