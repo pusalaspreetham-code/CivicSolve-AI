@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { UniversityAuthProvider } from "./context/UniversityAuthContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -33,6 +34,22 @@ import CitizenApp from "./citizen/CitizenApp";
 import { LanguageProvider } from "./citizen/context/LanguageContext";
 
 function App() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+
+    if (path.startsWith("/university")) {
+      document.title = "CivicSolve AI — University Portal";
+    } else if (path.startsWith("/student")) {
+      document.title = "CivicSolve AI — Student Portal";
+    } else if (path.startsWith("/citizen")) {
+      document.title = "CivicSolve AI — Citizen Portal";
+    } else {
+      document.title = "CivicSolve AI";
+    }
+  }, [location.pathname]);
+
   return (
     <ToastProvider>
       <AuthProvider>
