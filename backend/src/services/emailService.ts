@@ -120,6 +120,22 @@ export const sendTeamActivityEmail = async (params: TeamActivityEmailParams): Pr
   });
 };
 
+export const sendIndustryOtpEmail = async (toEmail: string, otp: string): Promise<void> => {
+  await dispatchMail({
+    to: toEmail,
+    subject: "Your CivicSolve AI industry verification code",
+    text: `Your OTP is ${otp}. It expires in 5 minutes. Do not share this code with anyone.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto;">
+        <h2 style="color:#d97706;">CivicSolve AI — Industry Portal</h2>
+        <p>Your verification code is:</p>
+        <p style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1e293b;">${otp}</p>
+        <p>This code expires in 5 minutes. If you didn't request this, you can ignore this email.</p>
+      </div>
+    `,
+  });
+};
+
 // ------------------------------------------------------------
 // Faculty guidance request — sent to the faculty member's email.
 // Faculty accepts/denies purely by clicking one of these links;
@@ -198,6 +214,80 @@ export const sendGuidanceResponseEmail = async (params: {
         </p>
         <p style="font-size:16px;font-weight:bold;color:#0f172a;">${escapeHtml(problemTitle)}</p>
         ${accepted ? `<p style="color:#334155;">Reach out to your faculty guide directly over email to get started.</p>` : ""}
+      </div>
+    `,
+  });
+};
+
+// ------------------------------------------------------------
+// Industry ⇄ Student Team messaging notifications.
+// Sent whenever either side posts a new chat message, so the
+// other side finds out even if they aren't actively checking
+// the app.
+// ------------------------------------------------------------
+export interface IndustryTeamMessageEmailParams {
+  toEmail: string;
+  companyName: string;
+  teamName: string;
+  problemTitle: string;
+  message: string;
+  teamsUrl?: string | null;
+}
+
+export const sendIndustryTeamMessageEmail = async (params: IndustryTeamMessageEmailParams): Promise<void> => {
+  const { toEmail, companyName, teamName, problemTitle, message, teamsUrl } = params;
+
+  await dispatchMail({
+    to: toEmail,
+    subject: `New message from ${companyName} — ${teamName}`,
+    text: `${companyName} sent your team "${teamName}" a message about "${problemTitle}":\n\n${message}${
+      teamsUrl ? `\n\nView & reply: ${teamsUrl}` : ""
+    }`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto;">
+        <h2 style="color:#0f766e; margin-bottom:4px;">CivicSolve AI</h2>
+        <p style="color:#64748b;margin-top:0;">New industry message</p>
+        <p><strong>${escapeHtml(companyName)}</strong> sent your team <strong>${escapeHtml(
+      teamName
+    )}</strong> a message about:</p>
+        <p style="font-size:16px;font-weight:bold;color:#0f172a;">${escapeHtml(problemTitle)}</p>
+        <p style="margin:12px 0 0;color:#334155;background:#fffbeb;border-left:3px solid #d97706;padding:10px 12px;border-radius:4px;white-space:pre-wrap;">${escapeHtml(
+          message
+        )}</p>
+        ${teamsUrl ? `<p style="margin:16px 0 0;"><a href="${escapeAttr(teamsUrl)}" style="color:#0f766e;">Open My Teams to reply &rarr;</a></p>` : ""}
+      </div>
+    `,
+  });
+};
+
+export interface TeamMessageToIndustryEmailParams {
+  toEmail: string;
+  studentName: string;
+  teamName: string;
+  problemTitle: string;
+  message: string;
+  industryUrl?: string | null;
+}
+
+export const sendTeamMessageToIndustryEmail = async (params: TeamMessageToIndustryEmailParams): Promise<void> => {
+  const { toEmail, studentName, teamName, problemTitle, message, industryUrl } = params;
+
+  await dispatchMail({
+    to: toEmail,
+    subject: `New message from team ${teamName} — ${problemTitle}`,
+    text: `${studentName} (team "${teamName}") sent you a message about "${problemTitle}":\n\n${message}${
+      industryUrl ? `\n\nView & reply: ${industryUrl}` : ""
+    }`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto;">
+        <h2 style="color:#0f766e; margin-bottom:4px;">CivicSolve AI</h2>
+        <p style="color:#64748b;margin-top:0;">New message from a student team</p>
+        <p><strong>${escapeHtml(studentName)}</strong> (team <strong>${escapeHtml(teamName)}</strong>) sent you a message about:</p>
+        <p style="font-size:16px;font-weight:bold;color:#0f172a;">${escapeHtml(problemTitle)}</p>
+        <p style="margin:12px 0 0;color:#334155;background:#f8fafc;border-left:3px solid #0f766e;padding:10px 12px;border-radius:4px;white-space:pre-wrap;">${escapeHtml(
+          message
+        )}</p>
+        ${industryUrl ? `<p style="margin:16px 0 0;"><a href="${escapeAttr(industryUrl)}" style="color:#0f766e;">Open the problem to reply &rarr;</a></p>` : ""}
       </div>
     `,
   });

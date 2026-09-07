@@ -27,3 +27,22 @@ export interface Team {
   solution_updated_at?: string | null;
   solution_updated_by?: number | null;
 }
+
+export interface TeamIndustryConversationSummary {
+  industry_id: number;
+  company_name: string;
+  sector: string;
+  adoption_status: string;
+  last_message: string | null;
+  last_sender_type: "INDUSTRY" | "STUDENT" | null;
+  last_message_at: string | null;
+  unread_count: number;
+}
+
+export interface TeamIndustryMessage {
+  id: number;
+  sender_type: "INDUSTRY" | "STUDENT";
+  message: string;
+  created_at: string;
+  sender_student_name: string | null;
+}

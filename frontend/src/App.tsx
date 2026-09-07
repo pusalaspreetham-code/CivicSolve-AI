@@ -3,13 +3,16 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { UniversityAuthProvider } from "./context/UniversityAuthContext";
 import { GovAuthProvider } from "./context/GovAuthContext";
+import { IndustryAuthProvider } from "./context/IndustryAuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import UniversityProtectedRoute from "./components/UniversityProtectedRoute";
 import GovProtectedRoute from "./components/gov/GovProtectedRoute";
+import IndustryProtectedRoute from "./components/IndustryProtectedRoute";
 import Layout from "./components/Layout";
 import UniversityLayout from "./components/UniversityLayout";
 import GovLayout from "./components/gov/GovLayout";
+import IndustryLayout from "./components/IndustryLayout";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -42,6 +45,15 @@ import GovProblemsMap from "./pages/gov/GovProblemsMap";
 import GovProblemDetails from "./pages/gov/GovProblemDetails";
 import GovProfile from "./pages/gov/GovProfile";
 
+import ILogin from "./pages/industry/ILogin";
+import IRegister from "./pages/industry/IRegister";
+import IVerifyOtp from "./pages/industry/IVerifyOtp";
+import IDashboard from "./pages/industry/IDashboard";
+import IProblems from "./pages/industry/IProblems";
+import IProblemDetails from "./pages/industry/IProblemDetails";
+import IAdoptions from "./pages/industry/IAdoptions";
+import IMessages from "./pages/industry/IMessages";
+
 import CitizenApp from "./citizen/CitizenApp";
 import { LanguageProvider } from "./citizen/context/LanguageContext";
 
@@ -55,6 +67,8 @@ function App() {
       document.title = "CivicSolve AI — University Portal";
     } else if (path.startsWith("/government")) {
       document.title = "CivicSolve AI — Government Portal";
+    } else if (path.startsWith("/industry")) {
+      document.title = "CivicSolve AI — Industry Portal";
     } else if (path.startsWith("/student")) {
       document.title = "CivicSolve AI — Student Portal";
     } else if (path.startsWith("/citizen")) {
@@ -69,6 +83,7 @@ function App() {
       <AuthProvider>
       <UniversityAuthProvider>
       <GovAuthProvider>
+      <IndustryAuthProvider>
         <Routes>
           <Route path="/home" element={<Home />} />
           <Route path="/find-problem" element={<PublicProblems />} />
@@ -134,12 +149,28 @@ function App() {
             <Route path="/government/profile" element={<GovProfile />} />
           </Route>
 
+          {/* Industry Auth (public) */}
+          <Route path="/industry/login" element={<ILogin />} />
+          <Route path="/industry/register" element={<IRegister />} />
+          <Route path="/industry/verify-otp" element={<IVerifyOtp />} />
+
+          {/* Industry Protected */}
+          <Route element={<IndustryProtectedRoute><IndustryLayout /></IndustryProtectedRoute>}>
+            <Route path="/industry/dashboard" element={<IDashboard />} />
+            <Route path="/industry/problems" element={<IProblems />} />
+            <Route path="/industry/problems/:id" element={<IProblemDetails />} />
+            <Route path="/industry/adoptions" element={<IAdoptions />} />
+            <Route path="/industry/messages" element={<IMessages />} />
+          </Route>
+
           <Route path="/" element={<Home />} />
           <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
           <Route path="/university" element={<Navigate to="/university/dashboard" replace />} />
           <Route path="/government" element={<Navigate to="/government/dashboard" replace />} />
+          <Route path="/industry" element={<Navigate to="/industry/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+      </IndustryAuthProvider>
       </GovAuthProvider>
       </UniversityAuthProvider>
       </AuthProvider>

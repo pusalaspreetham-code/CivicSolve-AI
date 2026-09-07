@@ -27,9 +27,10 @@ export const notifyTeam = async ({ teamId, actorStudentId, actionSummary, detail
     const { rows: actorRows } = await query(`SELECT name FROM students WHERE id = $1`, [actorStudentId]);
     const actorName = actorRows[0]?.name || "A team member";
 
+    // Everyone on the team EXCEPT the person who performed the action.
     const { rows: memberRows } = await query(
-      `SELECT s.email FROM team_members tm JOIN students s ON s.id = tm.student_id WHERE tm.team_id = $1`,
-      [teamId]
+      `SELECT s.email FROM team_members tm JOIN students s ON s.id = tm.student_id WHERE tm.team_id = $1 AND tm.student_id != $2`,
+      [teamId, actorStudentId]
     );
 
     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";

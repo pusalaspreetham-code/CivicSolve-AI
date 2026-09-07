@@ -304,3 +304,40 @@ know a problem's numeric ID can look it up. It's wired into:
 - The **Problems** page, as a "Search by name" box above the domain/severity filters.
 - Every problem card and the problem detail page now display the **Problem ID** clearly, so
   students can note it down for tracking later.
+
+## 17. Industry ⇄ Student Team Messaging (new)
+
+Once an industry partner adopts a civic problem, they can message the student team(s)
+working on it directly, and students can reply — a lightweight chat thread, not a full
+inbox system. Access is gated on adoption: an industry can only message teams working on
+a problem it has actually adopted, and only members of a team can see or send that team's
+messages.
+
+Run the extra migration once (after `student_portal.sql` and `industry_portal.sql`):
+
+```bash
+psql "$DATABASE_URL" -f database/industry_messaging.sql
+```
+
+This adds a single `industry_team_messages` table (no changes to any existing table).
+
+```
+GET    /api/industry/messages                              -> industry's conversation list
+                                                                 (one row per team, unread counts)
+GET    /api/industry/messages/:teamId                       -> thread with a team, marks it read
+POST   /api/industry/messages/:teamId       { message }     -> send a message to the team
+
+GET    /api/teams/:teamId/industry-conversations            -> team's conversation list
+                                                                 (one row per adopting industry)
+GET    /api/teams/:teamId/industry-conversations/:industryId -> thread with an industry, marks it read
+POST   /api/teams/:teamId/industry-conversations/:industryId { message } -> send a message
+```
+
+Every new message triggers an email to the other side (team members, or the industry's
+contact email) via the existing email service — so students find out about industry
+updates even when they aren't actively checking the app. The acting sender is never
+emailed their own message.
+
+**Frontend**: a new **Messages** page in the Industry Portal (`/industry/messages`), and an
+**Industry Messages** button on each team card in the Student Portal's **My Teams** page —
+both show unread badges and a simple two-way chat thread.

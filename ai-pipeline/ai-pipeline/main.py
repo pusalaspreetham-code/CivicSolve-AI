@@ -4,6 +4,7 @@ import os
 import uuid
 from pathlib import Path
 from typing import List, Optional
+from psycopg_pool import ConnectionPool
 
 import ollama
 import psycopg
