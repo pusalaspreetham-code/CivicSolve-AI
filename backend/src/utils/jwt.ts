@@ -1,5 +1,6 @@
 import jwt, { SignOptions } from "jsonwebtoken";
 import { JwtPayload, UniversityJwtPayload } from "../types";
+import { GovJwtPayload } from "../types/government";
 
 const SECRET = process.env.JWT_SECRET || "";
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
@@ -9,12 +10,12 @@ if (!SECRET) {
   process.exit(1);
 }
 
-export const signToken = (payload: JwtPayload): string => {
+export const signToken = (payload: JwtPayload | GovJwtPayload): string => {
   return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN } as SignOptions);
 };
 
-export const verifyToken = (token: string): JwtPayload => {
-  return jwt.verify(token, SECRET) as JwtPayload;
+export const verifyToken = (token: string): JwtPayload & Partial<GovJwtPayload> => {
+  return jwt.verify(token, SECRET) as JwtPayload & Partial<GovJwtPayload>;
 };
 
 export const signUniversityToken = (payload: UniversityJwtPayload): string => {

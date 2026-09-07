@@ -9,6 +9,8 @@ import citizenRoutes from "./routes/citizenRoutes";
 import universityRoutes from "./routes/universityRoutes";
 import teamRoutes from "./routes/teamRoutes";
 import guidanceRoutes from "./routes/guidanceRoutes";
+import govAuthRoutes from "./routes/govAuthRoutes";
+import govRoutes from "./routes/govRoutes";
 import { getPublicProblems } from "./controllers/problemController";
 import { notFound, errorHandler } from "./middleware/errorMiddleware";
 
@@ -18,7 +20,11 @@ const app = express();
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      process.env.CLIENT_URL,
+    ].filter(Boolean) as string[],
     credentials: true,
   })
 );
@@ -38,6 +44,8 @@ app.use("/api/university", universityRoutes);
 app.use("/api/teams", teamRoutes);
 // Public — faculty accept/deny guidance links from email (no auth).
 app.use("/api/guidance", guidanceRoutes);
+app.use("/api/gov/auth", govAuthRoutes);
+app.use("/api/gov", govRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

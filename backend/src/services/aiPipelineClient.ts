@@ -176,6 +176,72 @@ class AiPipelineClient {
       ok: true,
     };
   }
+
+  async getExecutiveBrief(problemData: {
+    problem_title: string;
+    problem_description: string;
+    domain: string;
+    severity: string;
+    report_count: number;
+    location_count: number;
+    responsible_fields: string[];
+  }): Promise<{
+    impact_assessment: string;
+    recommended_actions: string[];
+    resource_estimate: string;
+    priority_score: number;
+  }> {
+    try {
+      const result = await this.request(
+        "/executive-brief",
+        problemData,
+        AI_PIPELINE_TIMEOUT_MS
+      );
+      return result as any;
+    } catch (error) {
+      return {
+        impact_assessment: "AI Service temporarily unavailable. Manual assessment required.",
+        recommended_actions: ["Investigate the reported issue", "Coordinate with local teams", "Allocate necessary budget"],
+        resource_estimate: "Pending manual evaluation",
+        priority_score: problemData.severity === 'Critical' ? 90 : problemData.severity === 'High' ? 75 : 50
+      };
+    }
+  }
+
+  async analyzeTrends(problems: Array<{
+    domain: string;
+    severity: string;
+    report_count: number;
+  }>): Promise<{
+    top_issues: string[];
+    severity_distribution: Record<string, number>;
+    focus_areas: string[];
+    summary: string;
+  }> {
+    try {
+      const result = await this.request(
+        "/analyze-trends",
+        { problems },
+        AI_PIPELINE_TIMEOUT_MS
+      );
+      return result as any;
+    } catch (error) {
+      const severity_distribution: Record<string, number> = {};
+      const domains = new Set<string>();
+
+      for (const p of problems) {
+        severity_distribution[p.severity] = (severity_distribution[p.severity] || 0) + 1;
+        domains.add(p.domain);
+      }
+
+      return {
+        top_issues: Array.from(domains).slice(0, 5),
+        severity_distribution,
+        focus_areas: Array.from(domains).slice(0, 3),
+        summary: "AI trend analysis unavailable. Based on raw data, issues span across multiple domains with varying severities."
+      };
+    }
+  }
 }
 
 export const aiPipelineClient =

@@ -7,12 +7,16 @@ const OTP_TTL_MINUTES = 5;
 const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_ATTEMPTS = 5;
 
-export const requestOtp = async (email: string): Promise<void> => {
+// `tableName` is only ever passed as a hardcoded literal from call sites
+// (e.g. "student_otps", "government_otps") — never from user input — so
+// this interpolation is safe. Defaults to "student_otps" to stay
+// backward-compatible with existing single-argument call sites.
+export const requestOtp = async (email: string, tableName: string = "student_otps"): Promise<void> => {
   const normalizedEmail = email.toLowerCase().trim();
 
   // Enforce resend cooldown
   const { rows: recent } = await query(
-    `SELECT created_at FROM student_otps WHERE email = $1 ORDER BY created_at DESC LIMIT 1`,
+    `SELECT created_at FROM ${tableName} WHERE email = $1 ORDER BY created_at DESC LIMIT 1`,
     [normalizedEmail]
   );
 
@@ -30,20 +34,20 @@ export const requestOtp = async (email: string): Promise<void> => {
   const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
   // Invalidate any previous OTPs for this email, then insert a fresh one
-  await query(`DELETE FROM student_otps WHERE email = $1`, [normalizedEmail]);
+  await query(`DELETE FROM ${tableName} WHERE email = $1`, [normalizedEmail]);
   await query(
-    `INSERT INTO student_otps (email, otp_hash, expires_at) VALUES ($1, $2, $3)`,
+    `INSERT INTO ${tableName} (email, otp_hash, expires_at) VALUES ($1, $2, $3)`,
     [normalizedEmail, otpHash, expiresAt]
   );
 
   await sendOtpEmail(normalizedEmail, otp);
 };
 
-export const verifyOtp = async (email: string, otp: string): Promise<void> => {
+export const verifyOtp = async (email: string, otp: string, tableName: string = "student_otps"): Promise<void> => {
   const normalizedEmail = email.toLowerCase().trim();
 
   const { rows } = await query(
-    `SELECT id, otp_hash, expires_at, attempts FROM student_otps WHERE email = $1 ORDER BY created_at DESC LIMIT 1`,
+    `SELECT id, otp_hash, expires_at, attempts FROM ${tableName} WHERE email = $1 ORDER BY created_at DESC LIMIT 1`,
     [normalizedEmail]
   );
 
@@ -64,11 +68,11 @@ export const verifyOtp = async (email: string, otp: string): Promise<void> => {
   const isMatch = await compareOtp(otp, record.otp_hash);
 
   if (!isMatch) {
-    await query(`UPDATE student_otps SET attempts = attempts + 1 WHERE id = $1`, [record.id]);
+    await query(`UPDATE ${tableName} SET attempts = attempts + 1 WHERE id = $1`, [record.id]);
     throw new AppError("Incorrect OTP.", 400);
   }
 };
 
-export const consumeOtp = async (email: string): Promise<void> => {
-  await query(`DELETE FROM student_otps WHERE email = $1`, [email.toLowerCase().trim()]);
+export const consumeOtp = async (email: string, tableName: string = "student_otps"): Promise<void> => {
+  await query(`DELETE FROM ${tableName} WHERE email = $1`, [email.toLowerCase().trim()]);
 };

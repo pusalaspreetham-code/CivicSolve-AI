@@ -48,8 +48,8 @@ const roles = [
     title: "Government",
     description: "Track recurring problems and connect them to accountable action.",
     icon: Landmark,
-    href: "#future-access",
-    available: false,
+    href: "/government/login",
+    available: true,
     tone: "emerald",
   },
 ] as const;
@@ -205,7 +205,7 @@ export default function Home() {
         </section>
 
         <section id="access" className="mt-20 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-          <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">Choose your role</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">One network, different ways to contribute.</h2><p className="mt-4 text-sm leading-6 text-slate-600">Student access is available now. The University, Industry, and Government spaces are visible here so the future network is clear from day one.</p></div>
+          <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">Choose your role</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">One network, different ways to contribute.</h2><p className="mt-4 text-sm leading-6 text-slate-600">Student, University, and Government access is available now. The Industry space is visible here so the future network is clear from day one.</p></div>
           <div className="grid gap-3 sm:grid-cols-2">{roles.map((role) => <RoleCard key={role.title} role={role} />)}</div>
         </section>
 
@@ -214,7 +214,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><p>© {new Date().getFullYear()} CivicSolve. A public civic problem registry.</p><div className="flex gap-4 font-semibold"><Link to="/citizen" className="hover:text-blue-900">Report</Link><Link to="/find-problem" className="hover:text-blue-900">Find problems</Link><Link to="/student/login" className="hover:text-blue-900">Student login</Link></div></div></footer>
+      <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><p>© {new Date().getFullYear()} CivicSolve. A public civic problem registry.</p><div className="flex gap-4 font-semibold"><Link to="/citizen" className="hover:text-blue-900">Report</Link><Link to="/find-problem" className="hover:text-blue-900">Find problems</Link><Link to="/student/login" className="hover:text-blue-900">Student login</Link><Link to="/government/login" className="hover:text-blue-900">Government login</Link></div></div></footer>
     </div>
   );
 }

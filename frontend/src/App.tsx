@@ -2,11 +2,14 @@ import { useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { UniversityAuthProvider } from "./context/UniversityAuthContext";
+import { GovAuthProvider } from "./context/GovAuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import UniversityProtectedRoute from "./components/UniversityProtectedRoute";
+import GovProtectedRoute from "./components/gov/GovProtectedRoute";
 import Layout from "./components/Layout";
 import UniversityLayout from "./components/UniversityLayout";
+import GovLayout from "./components/gov/GovLayout";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -30,6 +33,15 @@ import UDashboard from "./pages/university/UDashboard";
 import UStudents from "./pages/university/UStudents";
 import UFaculty from "./pages/university/UFaculty";
 
+import GovLogin from "./pages/gov/GovLogin";
+import GovRegister from "./pages/gov/GovRegister";
+import GovVerifyOtp from "./pages/gov/GovVerifyOtp";
+import GovDashboard from "./pages/gov/GovDashboard";
+import GovProblems from "./pages/gov/GovProblems";
+import GovProblemsMap from "./pages/gov/GovProblemsMap";
+import GovProblemDetails from "./pages/gov/GovProblemDetails";
+import GovProfile from "./pages/gov/GovProfile";
+
 import CitizenApp from "./citizen/CitizenApp";
 import { LanguageProvider } from "./citizen/context/LanguageContext";
 
@@ -41,6 +53,8 @@ function App() {
 
     if (path.startsWith("/university")) {
       document.title = "CivicSolve AI — University Portal";
+    } else if (path.startsWith("/government")) {
+      document.title = "CivicSolve AI — Government Portal";
     } else if (path.startsWith("/student")) {
       document.title = "CivicSolve AI — Student Portal";
     } else if (path.startsWith("/citizen")) {
@@ -54,6 +68,7 @@ function App() {
     <ToastProvider>
       <AuthProvider>
       <UniversityAuthProvider>
+      <GovAuthProvider>
         <Routes>
           <Route path="/home" element={<Home />} />
           <Route path="/find-problem" element={<PublicProblems />} />
@@ -105,11 +120,27 @@ function App() {
             <Route path="/university/faculty" element={<UFaculty />} />
           </Route>
 
+          {/* Government Auth (public) */}
+          <Route path="/government/login" element={<GovLogin />} />
+          <Route path="/government/register" element={<GovRegister />} />
+          <Route path="/government/verify-otp" element={<GovVerifyOtp />} />
+
+          {/* Government Protected */}
+          <Route element={<GovProtectedRoute><GovLayout /></GovProtectedRoute>}>
+            <Route path="/government/dashboard" element={<GovDashboard />} />
+            <Route path="/government/problems" element={<GovProblems />} />
+            <Route path="/government/problems/map" element={<GovProblemsMap />} />
+            <Route path="/government/problems/:id" element={<GovProblemDetails />} />
+            <Route path="/government/profile" element={<GovProfile />} />
+          </Route>
+
           <Route path="/" element={<Home />} />
           <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
           <Route path="/university" element={<Navigate to="/university/dashboard" replace />} />
+          <Route path="/government" element={<Navigate to="/government/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+      </GovAuthProvider>
       </UniversityAuthProvider>
       </AuthProvider>
     </ToastProvider>
