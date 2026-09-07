@@ -12,6 +12,7 @@ import guidanceRoutes from "./routes/guidanceRoutes";
 import govAuthRoutes from "./routes/govAuthRoutes";
 import govRoutes from "./routes/govRoutes";
 import industryRoutes from "./routes/industryRoutes";
+import adminRoutes from "./routes/adminRoutes";
 import { getPublicProblems } from "./controllers/problemController";
 import { notFound, errorHandler } from "./middleware/errorMiddleware";
 
@@ -48,6 +49,7 @@ app.use("/api/guidance", guidanceRoutes);
 app.use("/api/gov/auth", govAuthRoutes);
 app.use("/api/gov", govRoutes);
 app.use("/api/industry", industryRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

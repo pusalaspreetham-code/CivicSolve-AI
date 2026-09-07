@@ -120,6 +120,8 @@ export const getIndustryProblems = asyncHandler(async (req: Request, res: Respon
   const conditions: string[] = [];
   const params: unknown[] = [];
 
+  conditions.push(`r.gov_review_status = 'GOV_APPROVED'`);
+
   if (domain && typeof domain === "string" && domain !== "ALL") {
     params.push(domain);
     conditions.push(`r.domain = $${params.length}`);
@@ -212,7 +214,8 @@ export const getProblemDetails = asyncHandler(async (req: Request, res: Response
      LEFT JOIN (
        SELECT problem_id, COUNT(*) AS report_count FROM problem_reports GROUP BY problem_id
      ) pr ON pr.problem_id = r.id
-     WHERE r.id = $1`,
+     WHERE r.id = $1
+      AND r.gov_review_status = 'GOV_APPROVED'`,
     [id]
   );
 
@@ -312,7 +315,8 @@ export const adoptProblem = asyncHandler(async (req: Request, res: Response) => 
     throw new AppError("Invalid commitment type. Must be MENTORSHIP, PILOT_FUNDING, HARDWARE_RESOURCES, or FIELD_DEPLOYMENT.", 400);
   }
 
-  const { rows: problemRows } = await query(`SELECT id FROM reports WHERE id = $1`, [id]);
+  const { rows: problemRows } = await query(
+  `SELECT id FROM reports WHERE id = $1 AND gov_review_status = 'GOV_APPROVED'`,[id]);
   if (problemRows.length === 0) throw new AppError("Problem not found.", 404);
 
   const { rows: existing } = await query(

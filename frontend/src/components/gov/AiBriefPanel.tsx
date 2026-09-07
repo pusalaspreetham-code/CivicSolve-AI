@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { govProblemService } from '../../services/govProblemService';
 import { AiBrief } from '../../types/government';
 
@@ -11,20 +11,23 @@ export default function AiBriefPanel({ problemId }: AiBriefPanelProps) {
   const [brief, setBrief] = useState<AiBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+
+  const fetchBrief = async (regenerate: boolean = false) => {
+    try {
+      setLoading(true);
+      const data = await govProblemService.getAiBrief(problemId, regenerate);
+      setBrief(data.brief);
+      if (data.generated_at) setGeneratedAt(data.generated_at);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to generate AI brief.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchBrief = async () => {
-      try {
-        setLoading(true);
-        const data = await govProblemService.getAiBrief(problemId);
-        setBrief(data);
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to generate AI brief.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBrief();
+    fetchBrief(false);
   }, [problemId]);
 
   if (loading) {
@@ -53,9 +56,23 @@ export default function AiBriefPanel({ problemId }: AiBriefPanelProps) {
   return (
     <div className="card overflow-hidden">
       <div className="bg-emerald-950 px-5 py-3 flex items-center justify-between text-white">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-400" />
-          <h3 className="font-bold text-sm">AI Executive Brief</h3>
+        <div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-400" />
+            <h3 className="font-bold text-sm flex items-center gap-2">
+              AI Executive Brief
+              <button 
+                onClick={() => fetchBrief(true)} 
+                title="Regenerate Brief"
+                className="p-1 hover:bg-emerald-800 rounded transition-colors text-emerald-200 hover:text-white"
+              >
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              </button>
+            </h3>
+          </div>
+          {generatedAt && (
+            <p className="text-xs text-emerald-200/50 mt-1">Generated {new Date(generatedAt).toLocaleString()}</p>
+          )}
         </div>
         <div className="flex items-center gap-2 text-xs">
           <span className="text-emerald-200/70 uppercase tracking-wider font-semibold">Priority Score</span>

@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext';
 import AiBriefPanel from '../../components/gov/AiBriefPanel';
 import ActionTimeline from '../../components/gov/ActionTimeline';
 import ProblemMap from '../../components/ProblemMap';
+import { GovStudent } from '../../types/government';
 
 export default function GovProblemDetails() {
   const { id } = useParams();
@@ -22,6 +23,12 @@ export default function GovProblemDetails() {
     budget_estimate: '',
     timeline_days: '',
   });
+
+  const [students, setStudents] = useState<GovStudent[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
+  const [removeModal, setRemoveModal] = useState<{ studentId: number; name: string } | null>(null);
+  const [removeReason, setRemoveReason] = useState('');
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -42,6 +49,22 @@ export default function GovProblemDetails() {
       }
     };
     fetchDetails();
+  }, [id]);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        if (id) {
+          const data = await govProblemService.getStudents(id);
+          setStudents(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch students', err);
+      } finally {
+        setStudentsLoading(false);
+      }
+    };
+    fetchStudents();
   }, [id]);
 
   const handleActionSubmit = async (e: React.FormEvent) => {
@@ -73,7 +96,12 @@ export default function GovProblemDetails() {
       showToast('Action recorded successfully', 'success');
       
       // Update local problem state to reflect new status
-      setProblem({ ...problem, actionStatus: actionForm.action_type });
+      if (['RESOLVED', 'DISMISSED_FAKE', 'DISMISSED_DUPLICATE', 'CLOSED_EXTERNAL'].includes(actionForm.action_type)) {
+        const updatedProblem = await govProblemService.getProblemById(id!);
+        setProblem(updatedProblem);
+      } else {
+        setProblem({ ...problem, actionStatus: actionForm.action_type });
+      }
     } catch (err: any) {
       showToast(err.response?.data?.message || 'Failed to record action', 'error');
     } finally {
@@ -125,6 +153,19 @@ export default function GovProblemDetails() {
               </span>
               {getSeverityBadge(problem.severity)}
               
+              {problem.status && problem.status !== 'OPEN' && (
+                <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                  problem.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-700' :
+                  problem.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
+                  problem.status === 'DISMISSED_FAKE' ? 'bg-red-100 text-red-700' :
+                  problem.status === 'DISMISSED_DUPLICATE' ? 'bg-orange-100 text-orange-700' :
+                  problem.status === 'CLOSED_EXTERNAL' ? 'bg-slate-100 text-slate-700' :
+                  'bg-slate-100 text-slate-600'
+                }`}>
+                  {problem.status.replace(/_/g, ' ')}
+                </span>
+              )}
+              
               <div className="flex items-center gap-4 ml-auto text-sm font-medium text-slate-600">
                 <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {problem.reportCount || problem.report_count || 1} citizens</span>
                 <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" /> {problem.locationCount || problem.location_count || 1} spots</span>
@@ -170,77 +211,183 @@ export default function GovProblemDetails() {
           {/* AI Briefing */}
           <AiBriefPanel problemId={id || ''} />
 
-          {/* Take Action Form */}
-          <div className="card p-6 border-emerald-200 bg-emerald-50/30">
-            <h3 className="text-lg font-bold text-emerald-900 mb-4">Record Official Action</h3>
-            <form onSubmit={handleActionSubmit} className="space-y-4">
-              <div>
-                <label className="label text-emerald-900">Action Type</label>
-                <select
-                  value={actionForm.action_type}
-                  onChange={(e) => setActionForm({ ...actionForm, action_type: e.target.value })}
-                  className="input focus:ring-emerald-500 bg-white"
-                  required
-                >
-                  <option value="ACKNOWLEDGED">Acknowledge Issue</option>
-                  <option value="IN_PROGRESS">Mark as In Progress</option>
-                  <option value="BUDGET_ALLOCATED">Budget Allocated</option>
-                  <option value="RESOLVED">Mark as Resolved</option>
-                  <option value="REJECTED">Reject / Invalid</option>
-                </select>
+          {/* Students Working on This */}
+          <div className="card p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Users className="text-emerald-600 h-5 w-5" /> Students Assigned ({students.length})
+            </h3>
+            {studentsLoading ? (
+              <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
+            ) : students.length === 0 ? (
+              <p className="text-sm text-slate-500">No students currently assigned to this problem.</p>
+            ) : (
+              <div className="space-y-3">
+                {students.map((s) => (
+                  <div key={s.studentId} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-bold text-sm text-slate-900">{s.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{s.college} • {s.branch} • {s.yearOfStudy}</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                            s.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
+                            s.status === 'WORKING' ? 'bg-blue-100 text-blue-700' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>{s.status}</span>
+                          <span className="text-xs text-slate-400">Joined {new Date(s.joinedAt).toLocaleDateString()}</span>
+                        </div>
+                        {s.contact && (
+                          <p className="text-xs text-slate-500 mt-1">📧 {s.contact.email} {s.contact.phone && `• 📞 ${s.contact.phone}`}</p>
+                        )}
+                      </div>
+                      {!['RESOLVED', 'DISMISSED_FAKE', 'DISMISSED_DUPLICATE', 'CLOSED_EXTERNAL'].includes(problem?.status) && (
+                        <button
+                          onClick={() => setRemoveModal({ studentId: s.studentId, name: s.name })}
+                          className="text-xs font-medium text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    {s.solutionText && (
+                      <div className="mt-2 pt-2 border-t border-slate-100">
+                        <p className="text-xs font-medium text-slate-500 mb-1">Solution Submitted:</p>
+                        <p className="text-xs text-slate-700 line-clamp-3">{s.solutionText}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-              
-              <div>
-                <label className="label text-emerald-900">Official Remarks (min 10 chars)</label>
-                <textarea
-                  value={actionForm.remarks}
-                  onChange={(e) => setActionForm({ ...actionForm, remarks: e.target.value })}
-                  className="input focus:ring-emerald-500 min-h-[100px] resize-y"
-                  placeholder="Provide official statement or update..."
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label text-emerald-900 text-xs">Est. Budget (₹)</label>
-                  <input
-                    type="number"
-                    value={actionForm.budget_estimate}
-                    onChange={(e) => setActionForm({ ...actionForm, budget_estimate: e.target.value })}
-                    className="input focus:ring-emerald-500 text-sm"
-                    placeholder="Optional"
-                  />
-                </div>
-                <div>
-                  <label className="label text-emerald-900 text-xs">Timeline (Days)</label>
-                  <input
-                    type="number"
-                    value={actionForm.timeline_days}
-                    onChange={(e) => setActionForm({ ...actionForm, timeline_days: e.target.value })}
-                    className="input focus:ring-emerald-500 text-sm"
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-70 disabled:cursor-not-allowed mt-2"
-              >
-                {isSubmitting ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <>
-                    <Send size={18} /> Record Action
-                  </>
-                )}
-              </button>
-            </form>
+            )}
           </div>
+
+          {/* Take Action Form */}
+          {['RESOLVED', 'DISMISSED_FAKE', 'DISMISSED_DUPLICATE', 'CLOSED_EXTERNAL'].includes(problem?.status) ? (
+            <div className="card p-6 border-slate-200 bg-slate-50">
+              <h3 className="text-lg font-bold text-slate-700 mb-2">Case Closed</h3>
+              <p className="text-sm text-slate-600">
+                This case has been closed as <strong>{problem.status.replace(/_/g, ' ').toLowerCase()}</strong>.
+              </p>
+              {problem.status_reason && (
+                <p className="text-sm text-slate-500 mt-2 bg-white p-3 rounded-lg border border-slate-100">{problem.status_reason}</p>
+              )}
+            </div>
+          ) : (
+            <div className="card p-6 border-emerald-200 bg-emerald-50/30">
+              <h3 className="text-lg font-bold text-emerald-900 mb-4">Record Official Action</h3>
+              <form onSubmit={handleActionSubmit} className="space-y-4">
+                <div>
+                  <label className="label text-emerald-900">Action Type</label>
+                  <select
+                    value={actionForm.action_type}
+                    onChange={(e) => setActionForm({ ...actionForm, action_type: e.target.value })}
+                    className="input focus:ring-emerald-500 bg-white"
+                    required
+                  >
+                    <option value="ACKNOWLEDGED">Acknowledge Issue</option>
+                    <option value="IN_PROGRESS">Mark as In Progress</option>
+                    <option value="BUDGET_ALLOCATED">Budget Allocated</option>
+                    <option value="RESOLVED">Mark as Resolved</option>
+                    <option value="DISMISSED_FAKE">Dismiss — Fake Report</option>
+                    <option value="DISMISSED_DUPLICATE">Dismiss — Duplicate</option>
+                    <option value="CLOSED_EXTERNAL">Close — Solved Externally</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="label text-emerald-900">Official Remarks (min 10 chars)</label>
+                  <textarea
+                    value={actionForm.remarks}
+                    onChange={(e) => setActionForm({ ...actionForm, remarks: e.target.value })}
+                    className="input focus:ring-emerald-500 min-h-[100px] resize-y"
+                    placeholder="Provide official statement or update..."
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-emerald-900 text-xs">Est. Budget (₹)</label>
+                    <input
+                      type="number"
+                      value={actionForm.budget_estimate}
+                      onChange={(e) => setActionForm({ ...actionForm, budget_estimate: e.target.value })}
+                      className="input focus:ring-emerald-500 text-sm"
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div>
+                    <label className="label text-emerald-900 text-xs">Timeline (Days)</label>
+                    <input
+                      type="number"
+                      value={actionForm.timeline_days}
+                      onChange={(e) => setActionForm({ ...actionForm, timeline_days: e.target.value })}
+                      className="input focus:ring-emerald-500 text-sm"
+                      placeholder="Optional"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-70 disabled:cursor-not-allowed mt-2"
+                >
+                  {isSubmitting ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <>
+                      <Send size={18} /> Record Action
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Remove Student Modal */}
+      {removeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Remove Student</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Remove <strong>{removeModal.name}</strong> from this case? They will see the reason.
+            </p>
+            <textarea
+              value={removeReason}
+              onChange={(e) => setRemoveReason(e.target.value)}
+              className="input focus:ring-emerald-500 min-h-[80px] resize-y mb-4"
+              placeholder="Reason for removal (min 10 characters)..."
+            />
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => { setRemoveModal(null); setRemoveReason(''); }} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+              <button
+                onClick={async () => {
+                  if (removeReason.trim().length < 10) { showToast('Reason must be at least 10 characters', 'error'); return; }
+                  setRemoving(true);
+                  try {
+                    await govProblemService.removeStudent(id!, removeModal.studentId, removeReason);
+                    setStudents(students.filter(s => s.studentId !== removeModal.studentId));
+                    setRemoveModal(null);
+                    setRemoveReason('');
+                    showToast('Student removed from case', 'success');
+                  } catch (err: any) {
+                    showToast(err.response?.data?.message || 'Failed to remove student', 'error');
+                  } finally {
+                    setRemoving(false);
+                  }
+                }}
+                disabled={removing || removeReason.trim().length < 10}
+                className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {removing ? 'Removing...' : 'Remove Student'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

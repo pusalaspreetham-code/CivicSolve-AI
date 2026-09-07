@@ -19,13 +19,6 @@ export const Footer: React.FC = () => {
               </p>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-6 text-slate-300">
-            <span className="hover:text-white cursor-pointer transition-colors">Citizen Charter</span>
-            <span className="hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
-            <span className="hover:text-white cursor-pointer transition-colors">Municipal API Docs</span>
-            <span className="hover:text-white cursor-pointer transition-colors">Research Consortia</span>
-          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px]">

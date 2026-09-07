@@ -60,12 +60,23 @@ export const VALID_DESIGNATIONS = [
   'Other'
 ];
 
+export type GovReviewStatus = 'DISCARDED' | 'PENDING_REVIEW' | 'GOV_APPROVED' | 'GOV_REJECTED';
+
+export const VALID_GOV_REVIEW_STATUSES: GovReviewStatus[] = [
+  'DISCARDED',
+  'PENDING_REVIEW',
+  'GOV_APPROVED',
+  'GOV_REJECTED',
+];
+
 export const VALID_ACTION_TYPES = [
   'ACKNOWLEDGED',
   'IN_PROGRESS',
   'BUDGET_ALLOCATED',
   'RESOLVED',
-  'REJECTED'
+  'DISMISSED_FAKE',
+  'DISMISSED_DUPLICATE',
+  'CLOSED_EXTERNAL',
 ];
 
 declare global {

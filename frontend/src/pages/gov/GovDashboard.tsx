@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useGovAuth } from '../../context/GovAuthContext';
 import { govProblemService } from '../../services/govProblemService';
 import { DashboardStats } from '../../types/government';
-import { ListChecks, AlertTriangle, ClipboardList, CheckCircle2, Loader2 } from 'lucide-react';
+import { ListChecks, AlertTriangle, ClipboardList, CheckCircle2, Loader2, ClipboardCheck, ArrowRight } from 'lucide-react';
 import GovProblemCard from '../../components/gov/GovProblemCard';
 
 export default function GovDashboard() {
@@ -17,10 +18,10 @@ export default function GovDashboard() {
         setLoading(true);
         const [statsData, problemsData] = await Promise.all([
           govProblemService.getDashboardStats(),
-          govProblemService.getProblems({ severity: 'CRITICAL,HIGH' })
+          govProblemService.getProblems()
         ]);
         setStats(statsData);
-        setHighPriorityProblems(problemsData.slice(0, 6)); // Top 6
+        setHighPriorityProblems(problemsData.slice(0, 6)); // Top 6 by priority
       } catch (error) {
         console.error('Failed to fetch dashboard data', error);
       } finally {
@@ -48,9 +49,28 @@ export default function GovDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {!!stats?.pending_approval && (
+        <Link
+          to="/government/approvals"
+          className="flex items-center justify-between gap-4 rounded-2xl bg-emerald-600 text-white px-6 py-4 shadow-sm hover:bg-emerald-700 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center">
+              <ClipboardCheck size={20} />
+            </div>
+            <div>
+              <p className="font-bold">{stats.pending_approval} problem{stats.pending_approval > 1 ? 's' : ''} waiting on your review</p>
+              <p className="text-sm text-emerald-50">These stay hidden from students until you approve them.</p>
+            </div>
+          </div>
+          <ArrowRight size={20} />
+        </Link>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: 'Total Problems', value: stats?.total_problems || 0, icon: ListChecks, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Pending Approval', value: stats?.pending_approval || 0, icon: ClipboardCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
           { label: 'High Priority', value: stats?.high_priority || 0, icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50' },
           { label: 'Actions Taken', value: stats?.actions_taken || 0, icon: ClipboardList, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Resolved', value: stats?.problems_resolved || 0, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
@@ -74,7 +94,7 @@ export default function GovDashboard() {
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900">High Priority Issues</h2>
+          <h2 className="text-lg font-bold text-slate-900">Top Priority Issues</h2>
         </div>
         
         {highPriorityProblems.length > 0 ? (

@@ -1,11 +1,28 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Landmark, LayoutDashboard, ListChecks, Map, User, LogOut } from 'lucide-react';
+import { Landmark, LayoutDashboard, ListChecks, Map, User, LogOut, ClipboardCheck } from 'lucide-react';
 import { useGovAuth } from '../../context/GovAuthContext';
+import { govProblemService } from '../../services/govProblemService';
 
 export default function GovSidebar() {
   const { logout } = useGovAuth();
   const navigate = useNavigate();
+  const [pendingCount, setPendingCount] = useState<number>(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCount = async () => {
+      try {
+        const stats = await govProblemService.getDashboardStats();
+        if (!cancelled) setPendingCount(stats.pending_approval || 0);
+      } catch {
+        // Non-critical — the badge just won't show a count.
+      }
+    };
+    loadCount();
+    const interval = setInterval(loadCount, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -14,6 +31,7 @@ export default function GovSidebar() {
 
   const navItems = [
     { to: '/government/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/government/approvals', icon: ClipboardCheck, label: 'Pending Approvals', badge: pendingCount },
     { to: '/government/problems', icon: ListChecks, label: 'Problems' },
     { to: '/government/problems/map', icon: Map, label: 'Problem Map' },
     { to: '/government/profile', icon: User, label: 'Profile' },
@@ -48,7 +66,12 @@ export default function GovSidebar() {
                 }
               >
                 <Icon size={18} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {!!item.badge && (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold">
+                    {item.badge}
+                  </span>
+                )}
               </NavLink>
             );
           })}

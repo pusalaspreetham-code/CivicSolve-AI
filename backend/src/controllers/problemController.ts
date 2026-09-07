@@ -31,6 +31,7 @@ const PROBLEM_SELECT = `
     r.image_path,
     r.image_description,
     r.locations,
+    r.priority_score,
     COALESCE(pr.report_count, 0)::int AS report_count,
     COALESCE(jsonb_array_length(r.locations), 0)::int AS location_count
   FROM reports r
@@ -39,7 +40,15 @@ const PROBLEM_SELECT = `
     FROM problem_reports
     GROUP BY problem_id
   ) pr ON pr.problem_id = r.id
+  WHERE r.gov_review_status = 'GOV_APPROVED'
 `;
+// NOTE: every problem the student portal (and the public catalog) can see
+// must have passed the government review gate. A problem only reaches
+// gov_review_status = 'GOV_APPROVED' after a government official has
+// explicitly approved it in the government portal — before that it's
+// either still PENDING_REVIEW (visible only to government) or was
+// auto-DISCARDED by the AI pipeline as low priority. All call sites below
+// add further conditions with "AND", never a second "WHERE".
 
 // GET /api/problems/relevant
 export const getRelevantProblems = asyncHandler(async (req: Request, res: Response) => {
@@ -47,7 +56,7 @@ export const getRelevantProblems = asyncHandler(async (req: Request, res: Respon
 
   const { rows } = await query(
     `${PROBLEM_SELECT}
-     WHERE $1 = ANY(r.responsible_fields)
+     AND $1 = ANY(r.responsible_fields)
      ORDER BY ${SEVERITY_ORDER}, report_count DESC, r.id DESC`,
     [branch]
   );
@@ -77,7 +86,8 @@ export const searchProblems = asyncHandler(async (req: Request, res: Response) =
      LEFT JOIN (
        SELECT problem_id, COUNT(*) AS report_count FROM problem_reports GROUP BY problem_id
      ) pr ON pr.problem_id = r.id
-     WHERE r.problem_title ILIKE $1 OR r.problem_description ILIKE $1
+     WHERE r.gov_review_status = 'GOV_APPROVED'
+       AND (r.problem_title ILIKE $1 OR r.problem_description ILIKE $1)
      ORDER BY ${SEVERITY_ORDER}, report_count DESC
      LIMIT 8`,
     [`%${term}%`]
@@ -90,7 +100,7 @@ export const searchProblems = asyncHandler(async (req: Request, res: Response) =
 export const getProblemById = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  const { rows } = await query(`${PROBLEM_SELECT} WHERE r.id = $1`, [id]);
+  const { rows } = await query(`${PROBLEM_SELECT} AND r.id = $1`, [id]);
 
   if (rows.length === 0) {
     throw new AppError("Problem not found.", 404);
@@ -134,7 +144,7 @@ export const getProblemsForMap = asyncHandler(async (req: Request, res: Response
 
   let sql = PROBLEM_SELECT;
   if (conditions.length > 0) {
-    sql += ` WHERE ${conditions.join(" AND ")}`;
+    sql += ` AND ${conditions.join(" AND ")}`;
   }
   sql += ` ORDER BY ${SEVERITY_ORDER}, report_count DESC`;
 
@@ -170,7 +180,10 @@ export const getPublicProblems = asyncHandler(async (_req: Request, res: Respons
 export const joinProblem = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  const { rows: problemRows } = await query(`SELECT id FROM reports WHERE id = $1`, [id]);
+  const { rows: problemRows } = await query(
+    `SELECT id FROM reports WHERE id = $1 AND gov_review_status = 'GOV_APPROVED'`,
+    [id]
+  );
   if (problemRows.length === 0) {
     throw new AppError("Problem not found.", 404);
   }

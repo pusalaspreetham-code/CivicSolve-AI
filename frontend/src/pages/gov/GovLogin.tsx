@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Landmark, Loader2 } from 'lucide-react';
+import { Landmark, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useGovAuth } from '../../context/GovAuthContext';
 import { useToast } from '../../context/ToastContext';
 import { govAuthService } from '../../services/govAuthService';
@@ -8,6 +8,8 @@ import { govAuthService } from '../../services/govAuthService';
 export default function GovLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
   const { login } = useGovAuth();
@@ -19,6 +21,7 @@ export default function GovLogin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     if (!email || !password) {
       showToast('Please fill in all fields', 'error');
       return;
@@ -31,7 +34,7 @@ export default function GovLogin() {
       showToast('Welcome back!', 'success');
       navigate(from, { replace: true });
     } catch (err: any) {
-      showToast(err.response?.data?.message || 'Failed to log in', 'error');
+      setError(err.response?.data?.message || 'Failed to log in');
     } finally {
       setIsLoading(false);
     }
@@ -53,6 +56,17 @@ export default function GovLogin() {
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6 md:p-8 space-y-5 shadow-xl shadow-emerald-900/5 border-emerald-100/50">
+          {error && (
+            <div className={`rounded-lg p-3 mb-1 text-sm font-medium ${
+              error.includes('awaiting') ? 'bg-amber-50 border border-amber-200 text-amber-800' :
+              error.includes('not approved') ? 'bg-red-50 border border-red-200 text-red-700' :
+              error.includes('suspended') ? 'bg-slate-100 border border-slate-300 text-slate-700' :
+              'bg-red-50 border border-red-200 text-red-700'
+            }`}>
+              {error}
+            </div>
+          )}
+
           <div>
             <label className="label">Official Email</label>
             <input
@@ -68,15 +82,27 @@ export default function GovLogin() {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="label mb-0">Password</label>
+              <Link to="/government/forgot-password" className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
+                Forgot password?
+              </Link>
             </div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input focus:ring-emerald-500"
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input focus:ring-emerald-500 pr-10"
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button

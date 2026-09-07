@@ -39,6 +39,10 @@ export interface AiPipelineResult {
   similarity?: number;
   reason?: string;
   error?: string;
+  /** 0-100 score computed by the AI pipeline from severity/confidence/report volume. */
+  priorityScore?: number;
+  /** 'DISCARDED' | 'PENDING_REVIEW' | 'GOV_APPROVED' | 'GOV_REJECTED' */
+  govReviewStatus?: string;
 }
 
 export interface CitizenProblemIntakePayload {

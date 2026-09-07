@@ -41,6 +41,55 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 # Tune this empirically against a labeled set of known-duplicate pairs.
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.5"))
 
+# ============================================================
+# PRIORITY SCORE / GOVERNMENT REVIEW GATE
+#
+# Every problem gets a priority_score (0-100) computed from its AI
+# classification (the "problem genome": severity + confidence) plus a
+# small boost for how many citizens have independently reported it.
+#
+#   score  < PRIORITY_DISCARD_THRESHOLD  -> gov_review_status='DISCARDED'
+#            (treated as noise/a random report, never shown anywhere)
+#   score >= PRIORITY_DISCARD_THRESHOLD  -> gov_review_status='PENDING_REVIEW'
+#            (visible ONLY in the government portal, not to students)
+#
+# A government official then approves/rejects it; only 'GOV_APPROVED'
+# rows are ever shown to the student/university portals.
+# ============================================================
+PRIORITY_DISCARD_THRESHOLD = float(os.getenv("PRIORITY_DISCARD_THRESHOLD", "25"))
+
+_SEVERITY_BASE_SCORE = {
+    "CRITICAL": 90,
+    "HIGH": 70,
+    "MEDIUM": 45,
+    "LOW": 20,
+}
+
+
+def compute_priority_score(severity: Optional[str], confidence: Optional[float], report_count: int = 1) -> float:
+    """Deterministic 0-100 priority score derived from the AI genome
+    (severity + classification confidence), with a small, capped boost
+    for corroborating reports from additional citizens."""
+    base = _SEVERITY_BASE_SCORE.get((severity or "").strip().upper(), 10)
+    conf = confidence if isinstance(confidence, (int, float)) else 0.5
+    conf = max(0.0, min(1.0, conf))
+
+    score = base * 0.7 + (conf * 100) * 0.3
+
+    # Corroboration boost: +3 per additional independent report, capped at +20,
+    # so a problem many citizens separately flag rises in the queue.
+    extra_reports = max(0, report_count - 1)
+    score += min(extra_reports * 3, 20)
+
+    return round(min(score, 100), 2)
+
+
+def gov_review_gate(priority_score: float):
+    """Returns (gov_review_status, discard_reason)."""
+    if priority_score < PRIORITY_DISCARD_THRESHOLD:
+        return "DISCARDED", f"priority_score {priority_score} below threshold {PRIORITY_DISCARD_THRESHOLD}"
+    return "PENDING_REVIEW", None
+
 # How long Ollama keeps each model resident in memory between calls.
 # Avoids reload/cold-start latency on back-to-back requests.
 OLLAMA_KEEP_ALIVE = os.getenv("OLLAMA_KEEP_ALIVE", "30m")
@@ -158,6 +207,8 @@ class ProcessResponse(BaseModel):
     similarity: Optional[float] = None
     reason: Optional[str] = None
     error: Optional[str] = None
+    priorityScore: Optional[float] = None
+    govReviewStatus: Optional[str] = None
 
 
 app = FastAPI(title="CivicSolve AI Pipeline")
@@ -658,15 +709,22 @@ def add_location(conn, problem_id, latitude, longitude):
 
 def insert_new_problem(conn, classification, report_text, image_path, image_description, embedding, latitude, longitude):
     locations = [{"latitude": latitude, "longitude": longitude}]
+
+    priority_score = compute_priority_score(
+        classification.get("severity"), classification.get("confidence"), report_count=1
+    )
+    gov_review_status, discard_reason = gov_review_gate(priority_score)
+
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO reports (
                 report_text, problem_title, problem_description, domain,
                 responsible_fields, severity, confidence, locations,
-                image_path, image_description, embedding
+                image_path, image_description, embedding,
+                priority_score, gov_review_status, discard_reason
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s::vector)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s::vector, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -681,11 +739,19 @@ def insert_new_problem(conn, classification, report_text, image_path, image_desc
                 image_path,
                 image_description,
                 embedding,
+                priority_score,
+                gov_review_status,
+                discard_reason,
             ),
         )
         new_id = cur.fetchone()[0]
     conn.commit()
-    return new_id
+    print(
+        f"[GENOME] new problem id={new_id} severity={classification.get('severity')} "
+        f"confidence={classification.get('confidence')} -> priority_score={priority_score} "
+        f"gov_review_status={gov_review_status}"
+    )
+    return new_id, priority_score, gov_review_status
 
 
 def insert_problem_report(
@@ -841,6 +907,90 @@ def preview(req: ProcessRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class ExecutiveBriefRequest(BaseModel):
+    problem_title: str
+    problem_description: str
+    domain: str
+    severity: str
+    report_count: int = 1
+    location_count: int = 1
+    responsible_fields: List[str] = []
+
+
+@app.post("/executive-brief")
+def executive_brief(req: ExecutiveBriefRequest):
+    prompt = f"""
+You are assisting a government officer reviewing a civic problem.
+
+Analyze this problem and return ONLY valid JSON.
+
+Problem title: {req.problem_title}
+Problem description: {req.problem_description}
+Domain: {req.domain}
+Severity: {req.severity}
+Citizen reports: {req.report_count}
+Locations: {req.location_count}
+Responsible fields: {", ".join(req.responsible_fields)}
+
+Return exactly:
+
+{{
+  "impact_assessment": "short assessment of who or what is affected",
+  "recommended_actions": [
+    "action 1",
+    "action 2",
+    "action 3"
+  ],
+  "resource_estimate": "short practical estimate",
+  "priority_score": 0
+}}
+
+Priority score must be between 0 and 100.
+
+Consider:
+- severity
+- number of citizen reports
+- number of affected locations
+- public safety
+- service disruption
+- urgency
+
+Do not invent facts.
+"""
+
+    try:
+        response = ollama.chat(
+            model=CLASSIFICATION_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        content = response["message"]["content"].strip()
+
+        # Remove markdown code fences if the model adds them
+        if content.startswith("```"):
+            content = content.replace("```json", "").replace("```", "").strip()
+
+        result = json.loads(content)
+
+        result["priority_score"] = max(
+            0,
+            min(100, float(result["priority_score"]))
+        )
+
+        return result
+
+    except Exception as e:
+        print("Executive brief generation failed:", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Executive brief generation failed"
+        )
+
 # ============================================================
 # MAIN ENTRY POINT
 # ============================================================
@@ -905,9 +1055,41 @@ def process(req: ProcessRequest):
                     )
 
                     add_location(conn, matched_id, req.latitude, req.longitude)
+
+                    # Recompute the priority score against the up-to-date
+                    # report count — one more citizen corroborating the same
+                    # problem nudges it up (or across the review threshold).
                     with conn.cursor() as cur:
                         cur.execute(
-                            "UPDATE reports SET problem_title=%s, problem_description=%s, domain=%s, responsible_fields=%s, severity=%s, confidence=%s WHERE id=%s",
+                            "SELECT COUNT(*) FROM problem_reports WHERE problem_id = %s",
+                            (matched_id,),
+                        )
+                        merged_report_count = cur.fetchone()[0] + 1  # +1 for this incoming report
+
+                        cur.execute(
+                            "SELECT gov_review_status FROM reports WHERE id = %s",
+                            (matched_id,),
+                        )
+                        existing_status_row = cur.fetchone()
+                        existing_status = existing_status_row[0] if existing_status_row else "PENDING_REVIEW"
+
+                    merged_priority_score = compute_priority_score(
+                        classification["severity"], classification["confidence"], report_count=merged_report_count
+                    )
+                    # Never silently downgrade a problem a government official
+                    # already approved/rejected — only re-gate problems still
+                    # sitting in DISCARDED/PENDING_REVIEW.
+                    if existing_status in ("DISCARDED", "PENDING_REVIEW"):
+                        merged_status, merged_discard_reason = gov_review_gate(merged_priority_score)
+                    else:
+                        merged_status, merged_discard_reason = existing_status, None
+
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            """UPDATE reports SET problem_title=%s, problem_description=%s, domain=%s,
+                               responsible_fields=%s, severity=%s, confidence=%s,
+                               priority_score=%s, gov_review_status=%s, discard_reason=%s
+                               WHERE id=%s""",
                             (
                                 classification["problem_title"],
                                 classification["problem_description"],
@@ -915,11 +1097,19 @@ def process(req: ProcessRequest):
                                 classification["responsible_fields"],
                                 classification["severity"],
                                 classification["confidence"],
+                                merged_priority_score,
+                                merged_status,
+                                merged_discard_reason,
                                 matched_id,
                             ),
                         )
                     conn.commit()
                     insert_problem_report(conn, matched_id, report_text, req.latitude, req.longitude, image_path, req.case_reference)
+
+                    print(
+                        f"[GENOME] merged into id={matched_id} report_count={merged_report_count} "
+                        f"-> priority_score={merged_priority_score} gov_review_status={merged_status}"
+                    )
 
                     return ProcessResponse(
                         ok=True,
@@ -933,9 +1123,11 @@ def process(req: ProcessRequest):
                         imageDescription=image_description or None,
                         similarity=round(matched_similarity, 4),
                         reason=decision.get("reason", ""),
+                        priorityScore=merged_priority_score,
+                        govReviewStatus=merged_status,
                     )
 
-            new_id = insert_new_problem(
+            new_id, priority_score, gov_review_status = insert_new_problem(
                 conn, classification, report_text, image_path,
                 image_description, embedding, req.latitude, req.longitude,
             )
@@ -952,6 +1144,8 @@ def process(req: ProcessRequest):
                 severity=classification["severity"],
                 confidence=classification["confidence"],
                 imageDescription=image_description or None,
+                priorityScore=priority_score,
+                govReviewStatus=gov_review_status,
             )
 
     except Exception as e:

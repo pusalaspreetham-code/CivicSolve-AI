@@ -24,6 +24,19 @@ export default function GovProblemCard({ problem }: GovProblemCardProps) {
     }
   };
 
+  const getReviewBadge = (reviewStatus: string) => {
+    switch (reviewStatus) {
+      case 'PENDING_REVIEW':
+        return <span className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-700/10">Awaiting Approval</span>;
+      case 'GOV_APPROVED':
+        return <span className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-700/10">Approved · Visible to students</span>;
+      case 'GOV_REJECTED':
+        return <span className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-red-50 text-red-700 ring-1 ring-inset ring-red-700/10">Rejected</span>;
+      default:
+        return null;
+    }
+  };
+
   const getSeverityBadge = (severity: string) => {
     const s = severity?.toUpperCase() || 'LOW';
     if (s === 'CRITICAL') return <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700"><AlertTriangle className="h-3 w-3" /> Critical</span>;
@@ -35,17 +48,26 @@ export default function GovProblemCard({ problem }: GovProblemCardProps) {
   return (
     <div className="card p-5 flex flex-col hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-3">
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-1 rounded">
             {problem.domain || 'Uncategorized'}
           </span>
           {getSeverityBadge(problem.severity)}
+          {typeof problem.priority_score === 'number' && (
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+              Priority {Math.round(problem.priority_score)}
+            </span>
+          )}
         </div>
         {getActionBadge(problem.actionStatus || problem.action_status)}
       </div>
 
-      <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2">{problem.title}</h3>
-      <p className="text-sm text-slate-600 mb-4 line-clamp-2 flex-1">{problem.description}</p>
+      {problem.gov_review_status && (
+        <div className="mb-3">{getReviewBadge(problem.gov_review_status)}</div>
+      )}
+
+      <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2">{problem.problem_title || problem.title}</h3>
+      <p className="text-sm text-slate-600 mb-4 line-clamp-2 flex-1">{problem.problem_description || problem.description}</p>
 
       <div className="flex items-center gap-4 text-xs font-medium text-slate-500 mb-4 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-1.5">

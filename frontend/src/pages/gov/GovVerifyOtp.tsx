@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { Landmark, Loader2, KeyRound } from 'lucide-react';
+import { useLocation, useNavigate, Navigate, Link } from 'react-router-dom';
+import { Landmark, Loader2, KeyRound, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { govAuthService } from '../../services/govAuthService';
 
 export default function GovVerifyOtp() {
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [verified, setVerified] = useState(false);
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -29,14 +30,36 @@ export default function GovVerifyOtp() {
     setIsLoading(true);
     try {
       await govAuthService.registerGovUser(formData, otp);
-      showToast('Account verified! Please log in.', 'success');
-      navigate('/government/login', { replace: true });
+      setVerified(true);
     } catch (err: any) {
       showToast(err.response?.data?.message || 'Invalid OTP', 'error');
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (verified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
+        <div className="w-full max-w-md text-center">
+          <div className="h-16 w-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 size={32} />
+          </div>
+          <h1 className="text-2xl font-black text-slate-900 mb-3">Application Submitted</h1>
+          <p className="text-slate-600 mb-6">
+            Your account has been verified and your application is now pending review.
+            You'll receive an email once an administrator approves your account.
+          </p>
+          <Link
+            to="/government/login"
+            className="inline-flex items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-600/20"
+          >
+            Return to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">

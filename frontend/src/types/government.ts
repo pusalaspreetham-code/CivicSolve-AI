@@ -22,6 +22,9 @@ export interface GovRegisterFormData {
   jurisdiction_city: string;
   jurisdiction_state: string;
   phone: string;
+  employee_id: string;
+  office_address: string;
+  justification: string;
 }
 
 export interface GovernmentAction {
@@ -39,11 +42,35 @@ export interface GovernmentAction {
   created_at: string;
 }
 
+export type GovReviewStatus = 'DISCARDED' | 'PENDING_REVIEW' | 'GOV_APPROVED' | 'GOV_REJECTED';
+
+export interface GovProblem {
+  id: number;
+  problem_title: string;
+  problem_description: string;
+  domain: string;
+  responsible_fields: string[];
+  severity: string;
+  confidence: number;
+  status: string;
+  priority_score: number;
+  gov_review_status: GovReviewStatus;
+  discard_reason: string | null;
+  review_remarks: string | null;
+  reviewed_at: string | null;
+  report_count: number;
+  location_count: number;
+  locations: { latitude: number | null; longitude: number | null }[];
+  created_at: string;
+  actions?: { id: number; action_type: string; created_at: string }[];
+}
+
 export interface DashboardStats {
   total_problems: number;
   high_priority: number;
   actions_taken: number;
   problems_resolved: number;
+  pending_approval: number;
 }
 
 export interface AiBrief {
@@ -64,3 +91,15 @@ export const DESIGNATIONS = [
   'Commissioner', 'Director', 'Joint Director', 'Deputy Director',
   'Officer', 'Assistant Officer', 'Clerk', 'Other',
 ] as const;
+
+export interface GovStudent {
+  studentId: number;
+  name: string;
+  college: string;
+  branch: string;
+  yearOfStudy: string;
+  status: string;
+  joinedAt: string;
+  solutionText: string | null;
+  contact: { email: string | null; phone: string | null } | null;
+}

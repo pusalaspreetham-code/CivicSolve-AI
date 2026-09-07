@@ -46,7 +46,12 @@ export const createTeam = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError("problemId is required.", 400);
   }
 
-  const { rows: problemRows } = await query(`SELECT id FROM reports WHERE id = $1`, [problemId]);
+  const { rows: problemRows } = await query(
+    `SELECT id FROM reports
+     WHERE id = $1
+       AND gov_review_status = 'GOV_APPROVED'`,
+    [problemId]
+  );
   if (problemRows.length === 0) {
     throw new AppError("Problem not found.", 404);
   }
@@ -155,7 +160,13 @@ export const getMyTeams = asyncHandler(async (req: Request, res: Response) => {
 // GET /api/teams/problem/:problemId
 export const getTeamsForProblem = asyncHandler(async (req: Request, res: Response) => {
   const { problemId } = req.params;
-  const { rows } = await query(`${TEAM_SELECT} WHERE t.problem_id = $1 ORDER BY t.created_at DESC`, [problemId]);
+  const { rows } = await query(
+    `${TEAM_SELECT}
+     WHERE t.problem_id = $1
+       AND r.gov_review_status = 'GOV_APPROVED'
+     ORDER BY t.created_at DESC`,
+    [problemId]
+  );
 
   const teamsWithMembers = await Promise.all(
     rows.map(async (team: any) => ({ ...team, members: await getTeamMembers(team.id) }))

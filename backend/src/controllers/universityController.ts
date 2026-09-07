@@ -58,7 +58,7 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
      WHERE r.id IN (
        SELECT DISTINCT problem_id FROM student_problems sp2
        JOIN students s2 ON s2.id = sp2.student_id
-       WHERE s2.university_id = $1
+       WHERE s2.university_id = $1 
      )
      GROUP BY r.id, r.problem_title, r.domain, r.severity
      ORDER BY our_students DESC

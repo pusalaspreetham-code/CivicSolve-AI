@@ -6,14 +6,14 @@ import { Loader2, Search, Filter } from 'lucide-react';
 export default function GovProblems() {
   const [problems, setProblems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ severity: '', actionStatus: '' });
+  const [filters, setFilters] = useState({ severity: '', actionStatus: '', reviewStatus: '' });
 
   useEffect(() => {
     const fetchProblems = async () => {
       try {
         setLoading(true);
         const data = await govProblemService.getProblems(
-          filters.severity || filters.actionStatus ? filters : undefined
+          filters.severity || filters.actionStatus || filters.reviewStatus ? filters : undefined
         );
         setProblems(data);
       } catch (error) {
@@ -39,6 +39,21 @@ export default function GovProblems() {
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <select
+              name="reviewStatus"
+              value={filters.reviewStatus}
+              onChange={handleFilterChange}
+              className="input bg-white pl-9 text-sm focus:ring-emerald-500 appearance-none pr-8 w-full"
+            >
+              <option value="">Approved & Pending</option>
+              <option value="GOV_APPROVED">Approved (visible to students)</option>
+              <option value="PENDING_REVIEW">Pending Approval</option>
+              <option value="GOV_REJECTED">Rejected</option>
+            </select>
+            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          </div>
+
           <div className="relative flex-1 sm:flex-none">
             <select
               name="severity"

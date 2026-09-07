@@ -39,7 +39,9 @@ import UFaculty from "./pages/university/UFaculty";
 import GovLogin from "./pages/gov/GovLogin";
 import GovRegister from "./pages/gov/GovRegister";
 import GovVerifyOtp from "./pages/gov/GovVerifyOtp";
+import GovForgotPassword from "./pages/gov/GovForgotPassword";
 import GovDashboard from "./pages/gov/GovDashboard";
+import GovPendingApprovals from "./pages/gov/GovPendingApprovals";
 import GovProblems from "./pages/gov/GovProblems";
 import GovProblemsMap from "./pages/gov/GovProblemsMap";
 import GovProblemDetails from "./pages/gov/GovProblemDetails";
@@ -53,6 +55,11 @@ import IProblems from "./pages/industry/IProblems";
 import IProblemDetails from "./pages/industry/IProblemDetails";
 import IAdoptions from "./pages/industry/IAdoptions";
 import IMessages from "./pages/industry/IMessages";
+
+import AdminLogin from './pages/admin/AdminLogin';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminUserDetail from './pages/admin/AdminUserDetail';
+import AdminProtectedRoute from './components/admin/AdminProtectedRoute';
 
 import CitizenApp from "./citizen/CitizenApp";
 import { LanguageProvider } from "./citizen/context/LanguageContext";
@@ -73,6 +80,8 @@ function App() {
       document.title = "CivicSolve AI — Student Portal";
     } else if (path.startsWith("/citizen")) {
       document.title = "CivicSolve AI — Citizen Portal";
+    } else if (path.startsWith("/admin")) {
+      document.title = "CivicSolve AI — Admin Portal";
     } else {
       document.title = "CivicSolve AI";
     }
@@ -139,10 +148,12 @@ function App() {
           <Route path="/government/login" element={<GovLogin />} />
           <Route path="/government/register" element={<GovRegister />} />
           <Route path="/government/verify-otp" element={<GovVerifyOtp />} />
+          <Route path="/government/forgot-password" element={<GovForgotPassword />} />
 
           {/* Government Protected */}
           <Route element={<GovProtectedRoute><GovLayout /></GovProtectedRoute>}>
             <Route path="/government/dashboard" element={<GovDashboard />} />
+            <Route path="/government/approvals" element={<GovPendingApprovals />} />
             <Route path="/government/problems" element={<GovProblems />} />
             <Route path="/government/problems/map" element={<GovProblemsMap />} />
             <Route path="/government/problems/:id" element={<GovProblemDetails />} />
@@ -162,6 +173,14 @@ function App() {
             <Route path="/industry/adoptions" element={<IAdoptions />} />
             <Route path="/industry/messages" element={<IMessages />} />
           </Route>
+
+          {/* Admin Portal */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route element={<AdminProtectedRoute />}>
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/gov-users/:id" element={<AdminUserDetail />} />
+          </Route>
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
           <Route path="/" element={<Home />} />
           <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />

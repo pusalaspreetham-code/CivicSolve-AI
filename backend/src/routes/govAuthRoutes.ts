@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { sendGovOtp, registerGov, loginGov, logoutGov } from "../controllers/govAuthController";
+import { sendGovOtp, registerGov, loginGov, logoutGov, forgotPassword, resetPassword } from "../controllers/govAuthController";
 import rateLimit from "express-rate-limit";
 
 const router = Router();
@@ -14,5 +14,7 @@ router.post("/send-otp", authLimiter, sendGovOtp);
 router.post("/register", authLimiter, registerGov);
 router.post("/login", authLimiter, loginGov);
 router.post("/logout", logoutGov);
+router.post("/forgot-password", authLimiter, forgotPassword);
+router.post("/reset-password", authLimiter, resetPassword);
 
 export default router;
